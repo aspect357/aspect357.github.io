@@ -1,9 +1,343 @@
-<!DOCTYPE html>
+function backToMenu() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            document.getElementById('main-menu').style.display = 'block';
+            document.getElementById('game-area').style.display = 'none';
+            document.getElementById('game-creator').style.display = 'none';
+            currentGame = null;
+            editingGame = null;
+        }
+
+        function showGameCreator() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('game-creator').style.display = 'block';
+            
+            // Clear form
+            document.getElementById('game-title').value = '';
+            document.getElementById('game-description').value = '';
+            document.getElementById('game-emoji').value = '🎮';
+            document.getElementById('game-type').value = 'clicker';
+            document.getElementById('game-color').value = '#00ffff';
+            document.getElementById('game-instructions').value = '';
+            editingGame = null;
+        }
+
+        function editUserGame(gameId) {
+            const game = userGames[gameId];
+            if (!game || game.creator !== currentUser) {
+                alert('You can only edit your own games!');
+                return;
+            }
+
+            showGameCreator();
+            editingGame = gameId;
+            
+            // Fill form with existing data
+            document.getElementById('game-title').value = game.title;
+            document.getElementById('game-description').value = game.description;
+            document.getElementById('game-emoji').value = game.emoji;
+            document.getElementById('game-type').value = game.type;
+            document.getElementById('game-color').value = game.color;
+            document.getElementById('game-instructions').value = game.instructions;
+        }
+
+        function deleteUserGame(gameId) {
+            const game = userGames[gameId];
+            if (!game || game.creator !== currentUser) {
+                alert('You can only delete your own games!');
+                return;
+            }
+
+            if (confirm('Are you sure you want to delete this game?')) {
+                delete userGames[gameId];
+                saveUserGames();
+                displayUserGames();
+            }
+        }
+
+        function saveUserGame() {
+            const title = document.getElementById('game-title').value.trim();
+            const description = document.getElementById('game-description').value.trim();
+            const emoji = document.getElementById('game-emoji').value.trim() || '🎮';
+            const type = document.getElementById('game-type').value;
+            const color = document.getElementById('game-color').value;
+            const instructions = document.getElementById('game-instructions').value.trim();
+
+            if (!title || !description || !instructions) {
+                alert('Please fill in all required fields!');
+                return;
+            }
+
+            const gameId = editingGame || Date.now().toString();
+            const gameData = {
+                id: gameId,
+                title,
+                description,
+                emoji,
+                type,
+                color,
+                instructions,
+                creator: currentUser,
+                created: editingGame ? userGames[gameId].created : new Date().toISOString(),
+                modified: new Date().toISOString()
+            };
+
+            userGames[gameId] = gameData;
+            saveUserGames();
+            displayUserGames();
+            backToMenu();
+            
+            alert(editingGame ? 'Game updated successfully!' : 'Game created successfully!');
+        }
+
+        function cancelGameCreation() {
+            backToMenu();
+        }
+
+        function displayUserGames() {
+            loadUserGames();
+            const grid = document.getElementById('user-games-grid');
+            const section = document.getElementById('user-games-section');
+            
+            if (Object.keys(userGames).length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            grid.innerHTML = '';
+
+            Object.values(userGames).forEach(game => {
+                const gameCard = document.createElement('div');
+                gameCard.className = 'game-card user-game-card';
+                
+                const isOwner = currentUser && game.creator === currentUser;
+                
+                gameCard.innerHTML = `
+                    <div class="user-game-controls">
+                        ${isOwner ? `
+                            <button class="btn small-btn" onclick="editUserGame('${game.id}')">Edit</button>
+                            <button class="btn small-btn back-btn" onclick="deleteUserGame('${game.id}')">Delete</button>
+                        ` : ''}
+                    </div>
+                    <h3>${game.emoji} ${game.title}</h3>
+                    <p>${game.description}</p>
+                    <p><small>By: ${game.creator}</small></p>
+                    <button class="btn" onclick="startUserGame('${game.id}')">Play Game</button>
+                `;
+                
+                grid.appendChild(gameCard);
+            });
+        }
+
+        function startUserGame(gameId) {
+            const game = userGames[gameId];
+            if (!game) return;
+
+            if (!currentUser) {
+                alert('Please login to play user games!');
+                return;
+            }
+
+            currentGame = 'user_' + gameId;
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('game-area').style.display = 'block';
+            
+            // Reset game stats
+            document.getElementById('score').textContent = '0';
+            document.getElementById('level').textContent = '1';
+            document.getElementById('lives').textContent = '3';
+            
+            // Set instructions
+            document.getElementById('instructions').innerHTML = `<strong>How to Play:</strong> ${game.instructions}`;
+            
+            // Start the user game
+            startUserGameLogic(game);
+        }
+
+        function startUserGameLogic(game) {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            let score = 0;
+            let gameActive = true;
+            let gameObjects = [];
+            
+            // Game logic based on type
+            switch(game.type) {
+                case 'clicker':
+                    startClickerGame(canvas, ctx, game, score);
+                    break;
+                case 'dodge':
+                    startDodgeGame(canvas, ctx, game, score);
+                    break;
+                case 'collect':
+                    startCollectGame(canvas, ctx, game, score);
+                    break;
+                case 'puzzle':
+                    startPuzzleGame(canvas, ctx, game, score);
+                    break;
+            }
+        }
+
+        function startClickerGame(canvas, ctx, game, score) {
+            let clicks = 0;
+            let targets = [];
+            
+            function createTarget() {
+                targets.push({
+                    x: Math.random() * (canvas.width - 50),
+                    y: Math.random() * (canvas.height - 50),
+                    size: 30,
+                    life: 180 // 3 seconds at 60fps
+                });
+            }
+            
+            function gameLoop() {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Create new targets
+                if (Math.random() < 0.02) {
+                    createTarget();
+                }
+                
+                // Update and draw targets
+                targets.forEach((target, index) => {
+                    target.life--;
+                    if (target.life <= 0) {
+                        targets.splice(index, 1);
+                        return;
+                    }
+                    
+                    ctx.fillStyle = game.color;
+                    ctx.fillRect(target.x, target.y, target.size, target.size);
+                });
+                
+                // Draw score
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.fillText(`Clicks: ${clicks}`, 10, 30);
+                
+                document.getElementById('score').textContent = clicks;
+                
+                if (currentGame.startsWith('user_')) {
+                    animationId = requestAnimationFrame(gameLoop);
+                }
+            }
+            
+            canvas.onclick = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                targets.forEach((target, index) => {
+                    if (x >= target.x && x <= target.x + target.size &&
+                        y >= target.y && y <= target.y + target.size) {
+                        targets.splice(index, 1);
+                        clicks++;
+                    }
+                });
+            };
+            
+            gameLoop();
+        }
+
+        function startDodgeGame(canvas, ctx, game, score) {
+            let player = { x: canvas.width / 2, y: canvas.height - 50, size: 20 };
+            let obstacles = [];
+            let gameScore = 0;
+            
+            function createObstacle() {
+                obstacles.push({
+                    x: Math.random() * (canvas.width - 30),
+                    y: -30,
+                    size: 30,
+                    speed: 2 + Math.random() * 3
+                });
+            }
+            
+            function gameLoop() {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Create obstacles
+                if (Math.random() < 0.03) {
+                    createObstacle();
+                }
+                
+                // Update obstacles
+                obstacles.forEach((obstacle, index) => {
+                    obstacle.y += obstacle.speed;
+                    if (obstacle.y > canvas.height) {
+                        obstacles.splice(index, 1);
+                        gameScore += 10;
+                    }
+                    
+                    // Check collision
+                    if (player.x < obstacle.x + obstacle.size &&
+                        player.x + player.size > obstacle.x &&
+                        player.y < obstacle.y + obstacle.size &&
+                        player.y + player.size > obstacle.y) {
+                        endGame(gameScore);
+                        alert('Game Over! Score: ' + gameScore);
+                        return;
+                    }
+                    
+                    ctx.fillStyle = '#f00';
+                    ctx.fillRect(obstacle.x, obstacle.y, obstacle.size, obstacle.size);
+                });
+                
+                // Draw player
+                ctx.fillStyle = game.color;
+                ctx.fillRect(player.x, player.y, player.size, player.size);
+                
+                // Draw score
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.fillText(`Score: ${gameScore}`, 10, 30);
+                
+                document.getElementById('score').textContent = gameScore;
+                
+                if (currentGame.startsWith('user_')) {
+                    animationId = requestAnimationFrame(gameLoop);
+                }
+            }
+            
+            // Controls
+            document.addEventListener('keydown', (e) => {
+                if (!currentGame.startsWith('user_')) return;
+                
+                switch(e.key) {
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        player.x = Math.max(0, player.x - 20);
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        player.x = Math.min(canvas.width - player.size, player.x + 20);
+                        break;
+                }
+            });
+            
+            gameLoop();
+        }
+
+        function startCollectGame(canvas, ctx, game, score) {
+            let player = { x: canvas.width / 2, y: canvas.height / 2, size: 20 };
+            let collectibles = [];
+            let gameScore = 0;
+            
+            function createCollectible() {
+                collectibles<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Todo</title>
+    <title>Retro Gaming Hub</title>
     <style>
         * {
             margin: 0;
@@ -12,300 +346,250 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+            color: #fff;
             min-height: 100vh;
-            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .star {
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
         }
 
         .container {
-            max-width: 1000px;
+            position: relative;
+            z-index: 2;
+            max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 10px;
             padding: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
-        .stats {
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #00ffff;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #00ffff; }
+            to { text-shadow: 0 0 30px #00ffff, 0 0 40px #00ffff; }
+        }
+
+        .login-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .login-form {
             display: flex;
+            gap: 10px;
+            align-items: center;
             justify-content: center;
-            gap: 20px;
-            margin-bottom: 20px;
             flex-wrap: wrap;
         }
 
-        .stat-card {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            min-width: 100px;
-            border: 1px solid #e9ecef;
+        .login-form input {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-family: inherit;
         }
 
-        .stat-card h3 {
-            font-size: 1.5em;
-            margin-bottom: 5px;
-            color: #495057;
-        }
-
-        .stat-card p {
-            font-size: 0.9em;
-            color: #6c757d;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 250px 1fr;
-            gap: 20px;
-        }
-
-        .sidebar {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            height: fit-content;
-            border: 1px solid #e9ecef;
-        }
-
-        .sidebar h3 {
-            color: #495057;
-            margin-bottom: 15px;
-            font-size: 1.1em;
-        }
-
-        .list-item {
-            padding: 10px 12px;
-            margin-bottom: 8px;
-            background: white;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: 1px solid #e9ecef;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .list-item:hover {
-            background: #e9ecef;
-        }
-
-        .list-item.active {
-            background: #007bff;
-            color: white;
-        }
-
-        .task-area {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            border: 1px solid #e9ecef;
-        }
-
-        .task-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .task-header h2 {
-            color: #495057;
-            font-size: 1.3em;
+        .login-form input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .btn {
-            padding: 8px 16px;
-            background: #007bff;
-            color: white;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
+            color: #fff;
+            font-family: inherit;
             cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.2s ease;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .btn:hover {
-            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
         }
 
-        .btn-secondary {
-            background: #6c757d;
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
         }
 
-        .btn-secondary:hover {
-            background: #545b62;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .btn-success {
-            background: #28a745;
-        }
-
-        .btn-success:hover {
-            background: #1e7e34;
-        }
-
-        .search-bar {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            font-size: 14px;
-            margin-bottom: 20px;
-        }
-
-        .search-bar:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: #e9ecef;
-            border-radius: 3px;
+        .game-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            position: relative;
             overflow: hidden;
-            margin-bottom: 20px;
         }
 
-        .progress-fill {
-            height: 100%;
-            background: #007bff;
-            transition: width 0.3s ease;
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: rotate(45deg);
+            transition: all 0.5s;
+            opacity: 0;
         }
 
-        .task-list {
-            max-height: 500px;
-            overflow-y: auto;
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 255, 255, 0.3);
         }
 
-        .task-item {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
+        .game-card:hover::before {
+            opacity: 1;
+            animation: shimmer 0.5s ease-in-out;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .game-card h3 {
+            font-size: 1.5em;
             margin-bottom: 10px;
-            border: 1px solid #e9ecef;
-            transition: all 0.2s ease;
+            color: #00ffff;
         }
 
-        .task-item:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        .game-card p {
+            margin-bottom: 15px;
+            opacity: 0.8;
         }
 
-        .task-item.completed {
-            opacity: 0.6;
-            border-left: 4px solid #28a745;
+        .game-area {
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            min-height: 400px;
         }
 
-        .task-item.completed .task-title {
-            text-decoration: line-through;
+        .game-canvas {
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            background: #000;
+            margin: 0 auto;
+            display: block;
         }
 
-        .task-item.high-priority {
-            border-left: 4px solid #dc3545;
+        .game-controls {
+            text-align: center;
+            margin-top: 20px;
         }
 
-        .task-item.medium-priority {
-            border-left: 4px solid #ffc107;
-        }
-
-        .task-content {
+        .game-info {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            gap: 15px;
-        }
-
-        .task-info {
-            flex: 1;
-        }
-
-        .task-title {
-            font-size: 1.1em;
-            font-weight: 500;
-            color: #495057;
-            margin-bottom: 8px;
-        }
-
-        .task-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
             margin-bottom: 10px;
-            font-size: 0.85em;
-            color: #6c757d;
+            font-size: 18px;
         }
 
-        .task-meta span {
-            background: #e9ecef;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.8em;
+        .user-info {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
         }
 
-        .task-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+        .high-scores {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .task-actions button {
-            padding: 6px 10px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s ease;
+        .back-btn {
+            background: linear-gradient(45deg, #666, #888);
+            margin-right: 10px;
         }
 
-        .modal {
+        .back-btn:hover {
+            box-shadow: 0 8px 25px rgba(136, 136, 136, 0.4);
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #00ffff;
+        }
+
+        .game-creator {
             display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.4);
-            overflow: auto;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            min-height: 600px;
         }
 
-        .modal-content {
-            background-color: white;
-            margin: 20px auto;
-            padding: 25px;
-            border-radius: 8px;
-            width: 90%;
-            max-width: 450px;
-            position: relative;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .close {
-            position: absolute;
-            right: 15px;
-            top: 15px;
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-            color: #999;
-        }
-
-        .close:hover {
-            color: #333;
+        .creator-form {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
         }
 
         .form-group {
@@ -315,496 +599,721 @@
         .form-group label {
             display: block;
             margin-bottom: 5px;
-            font-weight: 500;
-            color: #495057;
+            color: #00ffff;
+            font-weight: bold;
         }
 
-        .form-group input, .form-group select, .form-group textarea {
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
             width: 100%;
             padding: 10px;
-            border: 1px solid #e9ecef;
-            border-radius: 6px;
-            font-size: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-family: inherit;
         }
 
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-            outline: none;
-            border-color: #007bff;
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
         }
 
-        .quick-actions {
+        .game-preview {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .user-game-card {
+            position: relative;
+        }
+
+        .user-game-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: none;
+            gap: 5px;
+        }
+
+        .user-game-card:hover .user-game-controls {
             display: flex;
-            gap: 8px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
         }
 
-        .quick-action-btn {
-            padding: 6px 12px;
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s ease;
+        .small-btn {
+            padding: 5px 10px;
             font-size: 12px;
+            min-width: auto;
         }
 
-        .quick-action-btn:hover {
-            background: #e9ecef;
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            opacity: 0.7;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         @media (max-width: 768px) {
-            .main-content {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .games-grid {
                 grid-template-columns: 1fr;
             }
             
-            .sidebar {
-                order: 2;
+            .login-form {
+                flex-direction: column;
             }
             
-            .task-area {
-                order: 1;
+            .game-canvas {
+                width: 100% !important;
+                height: auto !important;
             }
         }
     </style>
 </head>
 <body>
+    <div class="stars"></div>
+    
     <div class="container">
-        <div class="stats">
-            <div class="stat-card">
-                <h3 id="totalTasks">0</h3>
-                <p>Total</p>
-            </div>
-            <div class="stat-card">
-                <h3 id="completedTasks">0</h3>
-                <p>Done</p>
-            </div>
-            <div class="stat-card">
-                <h3 id="studyTime">0</h3>
-                <p>Time (min)</p>
+
+
+        <div class="login-section">
+            <div class="login-form">
+                <input type="text" id="username" placeholder="Username">
+                <button class="btn" onclick="login()">Login</button>
+                <button class="btn back-btn" onclick="logout()" style="display: none;" id="logout-btn">Logout</button>
             </div>
         </div>
 
-        <div class="progress-bar">
-            <div class="progress-fill" id="progressFill"></div>
+        <div class="user-info" id="user-info" style="display: none;">
+            <h3>Welcome, <span id="current-user"></span></h3>
+            <p>Games: <span id="total-games">0</span> | Score: <span id="total-score">0</span></p>
+            <button class="btn" onclick="showGameCreator()">Create New Game</button>
         </div>
 
-        <div class="main-content">
-            <div class="sidebar">
-                <h3>Lists</h3>
-                <div class="list-item active" data-list="my-day">
-                    <span>Today</span>
-                    <span class="task-count" id="myDayCount">0</span>
+        <div id="main-menu">
+            <h3>🎮 Built-in Games</h3>
+            <div class="games-grid">
+                <div class="game-card">
+                    <h3>🐍 Snake Classic</h3>
+                    <p>The timeless classic! Eat food, grow longer, avoid walls and yourself.</p>
+                    <button class="btn" onclick="startGame('snake')">Play Snake</button>
                 </div>
-                <div class="list-item" data-list="important">
-                    <span>Important</span>
-                    <span class="task-count" id="importantCount">0</span>
+
+                <div class="game-card">
+                    <h3>🧱 Tetris</h3>
+                    <p>Stack blocks and clear lines in this legendary puzzle game.</p>
+                    <button class="btn" onclick="startGame('tetris')">Play Tetris</button>
                 </div>
-                <div class="list-item" data-list="assignments">
-                    <span>Assignments</span>
-                    <span class="task-count" id="assignmentsCount">0</span>
+
+                <div class="game-card">
+                    <h3>🏓 Pong</h3>
+                    <p>The original arcade classic! Beat the AI in this table tennis simulator.</p>
+                    <button class="btn" onclick="startGame('pong')">Play Pong</button>
                 </div>
-                <div class="list-item" data-list="exams">
-                    <span>Exams</span>
-                    <span class="task-count" id="examsCount">0</span>
+
+                <div class="game-card">
+                    <h3>👾 Space Invaders</h3>
+                    <p>Defend Earth from alien invasion in this retro shooter!</p>
+                    <button class="btn" onclick="startGame('spaceinvaders')">Play Space Invaders</button>
                 </div>
-                <div class="list-item" data-list="projects">
-                    <span>Projects</span>
-                    <span class="task-count" id="projectsCount">0</span>
+
+                <div class="game-card">
+                    <h3>🕹️ Pac-Man</h3>
+                    <p>Navigate the maze, eat dots, and avoid the ghosts!</p>
+                    <button class="btn" onclick="startGame('pacman')">Play Pac-Man</button>
                 </div>
-                <div class="list-item" data-list="study">
-                    <span>Study</span>
-                    <span class="task-count" id="studyCount">0</span>
+
+                <div class="game-card">
+                    <h3>🎯 Breakout</h3>
+                    <p>Break all the bricks with your ball and paddle!</p>
+                    <button class="btn" onclick="startGame('breakout')">Play Breakout</button>
                 </div>
-                <div class="list-item" data-list="completed">
-                    <span>Completed</span>
-                    <span class="task-count" id="completedCount">0</span>
+
+                <div class="game-card">
+                    <h3>🚀 Asteroids</h3>
+                    <p>Navigate your ship through dangerous asteroid fields!</p>
+                    <button class="btn" onclick="startGame('asteroids')">Play Asteroids</button>
+                </div>
+
+                <div class="game-card">
+                    <h3>🎪 Circus</h3>
+                    <p>Original creation! Pop balloons with your bouncing ball!</p>
+                    <button class="btn" onclick="startGame('circus')">Play Circus</button>
+                </div>
+
+                <div class="game-card">
+                    <h3>🌟 Stardust</h3>
+                    <p>Original creation! Collect stars while avoiding cosmic debris!</p>
+                    <button class="btn" onclick="startGame('stardust')">Play Stardust</button>
+                </div>
+
+                <div class="game-card">
+                    <h3>🎲 Memory Matrix</h3>
+                    <p>Original creation! Test your memory with this pattern-matching game!</p>
+                    <button class="btn" onclick="startGame('memory')">Play Memory Matrix</button>
+                </div>
+            </div>
+
+            <div id="user-games-section" style="display: none;">
+                <h3>🎨 Community Games</h3>
+                <div class="games-grid" id="user-games-grid">
+                    <!-- User-created games will appear here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="game-area" id="game-area">
+            <div class="game-controls">
+                <button class="btn back-btn" onclick="backToMenu()">← Back to Menu</button>
+                <button class="btn" onclick="restartGame()">Restart Game</button>
+            </div>
+            
+            <div class="instructions" id="instructions"></div>
+            
+            <div class="game-info">
+                <div>Score: <span id="score">0</span></div>
+                <div>Level: <span id="level">1</span></div>
+                <div>Lives: <span id="lives">3</span></div>
+            </div>
+            
+            <canvas id="gameCanvas" class="game-canvas" width="800" height="600"></canvas>
+        </div>
+
+        <div class="game-creator" id="game-creator" style="display: none;">
+            <div class="game-controls">
+                <button class="btn back-btn" onclick="backToMenu()">← Back to Menu</button>
+                <button class="btn" onclick="saveUserGame()">Save Game</button>
+                <button class="btn back-btn" onclick="cancelGameCreation()">Cancel</button>
+            </div>
+            
+            <div class="creator-form">
+                <h3>🎨 Game Creator</h3>
+                <div class="form-group">
+                    <label>Game Title:</label>
+                    <input type="text" id="game-title" placeholder="Enter game title" maxlength="50">
                 </div>
                 
-                <h3 style="margin-top: 25px;">Actions</h3>
-                <div class="quick-actions">
-                    <button class="quick-action-btn" onclick="showAddTaskModal()">Add Task</button>
-                    <button class="quick-action-btn" onclick="exportData()">Export</button>
+                <div class="form-group">
+                    <label>Game Description:</label>
+                    <textarea id="game-description" placeholder="Describe your game..." maxlength="200"></textarea>
                 </div>
-            </div>
-
-            <div class="task-area">
-                <div class="task-header">
-                    <h2 id="currentListTitle">Today</h2>
-                    <button class="btn" onclick="showAddTaskModal()">Add Task</button>
+                
+                <div class="form-group">
+                    <label>Game Emoji:</label>
+                    <input type="text" id="game-emoji" placeholder="🎮" maxlength="2">
                 </div>
-
-                <input type="text" class="search-bar" id="searchBar" placeholder="Search tasks...">
-
-                <div class="task-list" id="taskList">
-                    <!-- Tasks will be populated here -->
+                
+                <div class="form-group">
+                    <label>Game Type:</label>
+                    <select id="game-type">
+                        <option value="clicker">Clicker Game</option>
+                        <option value="dodge">Dodge Game</option>
+                        <option value="collect">Collection Game</option>
+                        <option value="puzzle">Simple Puzzle</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Theme Color:</label>
+                    <input type="color" id="game-color" value="#00ffff">
+                </div>
+                
+                <div class="form-group">
+                    <label>Instructions:</label>
+                    <textarea id="game-instructions" placeholder="How to play your game..." maxlength="300"></textarea>
+                </div>
+                
+                <div class="game-preview">
+                    <h4>Preview:</h4>
+                    <canvas id="creatorCanvas" class="game-canvas" width="400" height="300"></canvas>
+                    <button class="btn" onclick="previewGame()">Test Game</button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Add Task Modal -->
-    <div id="addTaskModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2>Add New Task</h2>
-            <form id="addTaskForm">
-                <div class="form-group">
-                    <label for="taskTitle">Task Title *</label>
-                    <input type="text" id="taskTitle" required>
-                </div>
-                <div class="form-group">
-                    <label for="taskDescription">Description</label>
-                    <textarea id="taskDescription" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="taskCategory">Category</label>
-                    <select id="taskCategory">
-                        <option value="assignments">Assignments</option>
-                        <option value="exams">Exams</option>
-                        <option value="projects">Projects</option>
-                        <option value="study">Study</option>
-                        <option value="my-day">Today</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="taskSubject">Subject</label>
-                    <input type="text" id="taskSubject" placeholder="e.g., Math, History, Science">
-                </div>
-                <div class="form-group">
-                    <label for="taskPriority">Priority</label>
-                    <select id="taskPriority">
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="taskDueDate">Due Date</label>
-                    <input type="datetime-local" id="taskDueDate">
-                </div>
-                <div class="form-group">
-                    <label for="taskEstimatedTime">Estimated Time (minutes)</label>
-                    <input type="number" id="taskEstimatedTime" min="5" max="600" step="5">
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="taskImportant"> Mark as Important
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="taskAddToMyDay"> Add to Today
-                    </label>
-                </div>
-                <button type="submit" class="btn">Add Task</button>
-            </form>
+        <div class="high-scores">
+            <h3>🏆 High Scores</h3>
+            <div id="scores-list">
+                <p>Play some games to see your high scores!</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>All game data saved locally</p>
         </div>
     </div>
 
     <script>
-        // Application state
-        let tasks = [];
-        let currentList = 'my-day';
-        let studyTimeToday = 0;
+        // Game state management
+        let currentUser = null;
+        let currentGame = null;
+        let gameData = {};
+        let animationId = null;
+        let userGames = {};
+        let editingGame = null;
 
-        // Load data from storage
-        function loadData() {
-            try {
-                const savedTasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
-                const savedStudyTime = parseInt(localStorage.getItem('studyTime') || '0');
-                tasks = savedTasks;
-                studyTimeToday = savedStudyTime;
-            } catch (error) {
-                console.error('Error loading data:', error);
-                tasks = [];
-                studyTimeToday = 0;
+        // Initialize stars background
+        function createStars() {
+            const starsContainer = document.querySelector('.stars');
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.width = Math.random() * 3 + 1 + 'px';
+                star.style.height = star.style.width;
+                star.style.animationDelay = Math.random() * 3 + 's';
+                starsContainer.appendChild(star);
             }
         }
 
-        // Save data to storage
-        function saveData() {
-            try {
-                localStorage.setItem('todoTasks', JSON.stringify(tasks));
-                localStorage.setItem('studyTime', studyTimeToday.toString());
-            } catch (error) {
-                console.error('Error saving data:', error);
-            }
-        }
-
-        // Generate unique ID
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2);
-        }
-
-        // Add new task
-        function addTask(taskData) {
-            const task = {
-                id: generateId(),
-                title: taskData.title,
-                description: taskData.description,
-                category: taskData.category,
-                subject: taskData.subject,
-                priority: taskData.priority,
-                dueDate: taskData.dueDate,
-                estimatedTime: taskData.estimatedTime,
-                important: taskData.important,
-                addToMyDay: taskData.addToMyDay,
-                completed: false,
-                createdDate: new Date().toISOString(),
-                completedDate: null
-            };
-            
-            tasks.push(task);
-            saveData();
-            updateUI();
-        }
-
-        // Toggle task completion
-        function toggleTask(taskId) {
-            const task = tasks.find(t => t.id === taskId);
-            if (task) {
-                task.completed = !task.completed;
-                task.completedDate = task.completed ? new Date().toISOString() : null;
-                saveData();
-                updateUI();
-            }
-        }
-
-        // Delete task
-        function deleteTask(taskId) {
-            if (confirm('Are you sure you want to delete this task?')) {
-                tasks = tasks.filter(t => t.id !== taskId);
-                saveData();
-                updateUI();
-            }
-        }
-
-        // Edit task
-        function editTask(taskId) {
-            const task = tasks.find(t => t.id === taskId);
-            if (task) {
-                document.getElementById('taskTitle').value = task.title;
-                document.getElementById('taskDescription').value = task.description;
-                document.getElementById('taskCategory').value = task.category;
-                document.getElementById('taskSubject').value = task.subject;
-                document.getElementById('taskPriority').value = task.priority;
-                document.getElementById('taskDueDate').value = task.dueDate;
-                document.getElementById('taskEstimatedTime').value = task.estimatedTime;
-                document.getElementById('taskImportant').checked = task.important;
-                document.getElementById('taskAddToMyDay').checked = task.addToMyDay;
-                
-                // Change form to edit mode
-                document.getElementById('addTaskForm').dataset.editId = taskId;
-                document.querySelector('#addTaskModal h2').textContent = 'Edit Task';
-                showAddTaskModal();
-            }
-        }
-
-        // Filter tasks based on current list
-        function getFilteredTasks() {
-            let filtered = tasks;
-            
-            switch (currentList) {
-                case 'my-day':
-                    filtered = tasks.filter(t => t.addToMyDay && !t.completed);
-                    break;
-                case 'important':
-                    filtered = tasks.filter(t => t.important && !t.completed);
-                    break;
-                case 'completed':
-                    filtered = tasks.filter(t => t.completed);
-                    break;
-                case 'assignments':
-                case 'exams':
-                case 'projects':
-                case 'study':
-                    filtered = tasks.filter(t => t.category === currentList && !t.completed);
-                    break;
-            }
-            
-            // Apply search filter
-            const searchTerm = document.getElementById('searchBar').value.toLowerCase();
-            if (searchTerm) {
-                filtered = filtered.filter(t => 
-                    t.title.toLowerCase().includes(searchTerm) ||
-                    t.description.toLowerCase().includes(searchTerm) ||
-                    t.subject.toLowerCase().includes(searchTerm)
-                );
-            }
-            
-            return filtered;
-        }
-
-        // Update UI
-        function updateUI() {
-            updateStats();
-            updateTaskList();
-            updateTaskCounts();
-            updateProgressBar();
-        }
-
-        // Update statistics
-        function updateStats() {
-            document.getElementById('totalTasks').textContent = tasks.length;
-            document.getElementById('completedTasks').textContent = tasks.filter(t => t.completed).length;
-            document.getElementById('studyTime').textContent = studyTimeToday;
-        }
-
-        // Update task list display
-        function updateTaskList() {
-            const taskList = document.getElementById('taskList');
-            const filteredTasks = getFilteredTasks();
-            
-            if (filteredTasks.length === 0) {
-                taskList.innerHTML = '<div style="text-align: center; padding: 50px; color: #666;">No tasks found. Add some tasks to get started!</div>';
+        // User management
+        function login() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                alert('Please enter a username!');
                 return;
             }
+
+            currentUser = username;
+            loadUserData();
+            loadUserGames();
+            document.getElementById('current-user').textContent = username;
+            document.getElementById('user-info').style.display = 'block';
+            document.getElementById('logout-btn').style.display = 'inline-block';
+            document.getElementById('username').style.display = 'none';
+            document.querySelector('.login-form button').style.display = 'none';
+            updateUserStats();
+            displayUserGames();
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('user-info').style.display = 'none';
+            document.getElementById('logout-btn').style.display = 'none';
+            document.getElementById('username').style.display = 'inline-block';
+            document.getElementById('username').value = '';
+            document.querySelector('.login-form button').style.display = 'inline-block';
+            backToMenu();
+        }
+
+        function loadUserData() {
+            const saved = localStorage.getItem('retrogaming_' + currentUser);
+            if (saved) {
+                gameData = JSON.parse(saved);
+            } else {
+                gameData = {
+                    totalGames: 0,
+                    totalScore: 0,
+                    highScores: {}
+                };
+            }
+        }
+
+        function loadUserGames() {
+            const saved = localStorage.getItem('retrogaming_usergames');
+            if (saved) {
+                userGames = JSON.parse(saved);
+            } else {
+                userGames = {};
+            }
+        }
+
+        function saveUserGames() {
+            localStorage.setItem('retrogaming_usergames', JSON.stringify(userGames));
+        }
+
+        function saveUserData() {
+            if (currentUser) {
+                localStorage.setItem('retrogaming_' + currentUser, JSON.stringify(gameData));
+            }
+        }
+
+        function updateUserStats() {
+            if (currentUser) {
+                document.getElementById('total-games').textContent = gameData.totalGames || 0;
+                document.getElementById('total-score').textContent = gameData.totalScore || 0;
+                updateHighScores();
+            }
+        }
+
+        function updateHighScores() {
+            const scoresList = document.getElementById('scores-list');
+            if (!gameData.highScores || Object.keys(gameData.highScores).length === 0) {
+                scoresList.innerHTML = '<p>Play some games to see your high scores!</p>';
+                return;
+            }
+
+            let html = '';
+            Object.keys(gameData.highScores).forEach(game => {
+                html += `<p><strong>${game.toUpperCase()}:</strong> ${gameData.highScores[game]}</p>`;
+            });
+            scoresList.innerHTML = html;
+        }
+
+        // Game management
+        function startGame(gameType) {
+            if (!currentUser) {
+                alert('Please login first to save your progress!');
+                return;
+            }
+
+            currentGame = gameType;
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('game-area').style.display = 'block';
             
-            taskList.innerHTML = filteredTasks.map(task => {
-                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !task.completed;
-                const priorityClass = task.priority === 'high' ? 'high-priority' : 
-                                   task.priority === 'medium' ? 'medium-priority' : '';
-                
-                return `
-                    <div class="task-item ${task.completed ? 'completed' : ''} ${priorityClass}">
-                        <div class="task-content">
-                            <div class="task-info">
-                                <div class="task-title">${task.title}</div>
-                                <div class="task-meta">
-                                    <span>${task.category}</span>
-                                    ${task.subject ? `<span>${task.subject}</span>` : ''}
-                                    <span>${task.priority}</span>
-                                    ${task.dueDate ? `<span>${new Date(task.dueDate).toLocaleDateString()}</span>` : ''}
-                                    ${task.estimatedTime ? `<span>${task.estimatedTime}min</span>` : ''}
-                                    ${task.important ? '<span>Important</span>' : ''}
-                                </div>
-                                ${task.description ? `<div style="margin-top: 10px; color: #666; font-size: 0.9em;">${task.description}</div>` : ''}
-                            </div>
-                            <div class="task-actions">
-                                <button onclick="toggleTask('${task.id}')" class="btn-success">
-                                    ${task.completed ? 'Undo' : 'Done'}
-                                </button>
-                                <button onclick="editTask('${task.id}')" class="btn-secondary">Edit</button>
-                                <button onclick="deleteTask('${task.id}')" class="btn-danger">Delete</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            // Reset game stats
+            document.getElementById('score').textContent = '0';
+            document.getElementById('level').textContent = '1';
+            document.getElementById('lives').textContent = '3';
+
+            // Set instructions
+            setInstructions(gameType);
+
+            // Start the specific game
+            switch(gameType) {
+                case 'snake':
+                    startSnake();
+                    break;
+                case 'tetris':
+                    startTetris();
+                    break;
+                case 'pong':
+                    startPong();
+                    break;
+                case 'spaceinvaders':
+                    startSpaceInvaders();
+                    break;
+                case 'pacman':
+                    startPacman();
+                    break;
+                case 'breakout':
+                    startBreakout();
+                    break;
+                case 'asteroids':
+                    startAsteroids();
+                    break;
+                case 'circus':
+                    startCircus();
+                    break;
+                case 'stardust':
+                    startStardust();
+                    break;
+                case 'memory':
+                    startMemory();
+                    break;
+            }
         }
 
-        // Update task counts in sidebar
-        function updateTaskCounts() {
-            document.getElementById('myDayCount').textContent = tasks.filter(t => t.addToMyDay && !t.completed).length;
-            document.getElementById('importantCount').textContent = tasks.filter(t => t.important && !t.completed).length;
-            document.getElementById('assignmentsCount').textContent = tasks.filter(t => t.category === 'assignments' && !t.completed).length;
-            document.getElementById('examsCount').textContent = tasks.filter(t => t.category === 'exams' && !t.completed).length;
-            document.getElementById('projectsCount').textContent = tasks.filter(t => t.category === 'projects' && !t.completed).length;
-            document.getElementById('studyCount').textContent = tasks.filter(t => t.category === 'study' && !t.completed).length;
-            document.getElementById('completedCount').textContent = tasks.filter(t => t.completed).length;
-        }
-
-        // Update progress bar
-        function updateProgressBar() {
-            const totalTasks = tasks.length;
-            const completedTasks = tasks.filter(t => t.completed).length;
-            const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-            document.getElementById('progressFill').style.width = progress + '%';
-        }
-
-        // Show add task modal
-        function showAddTaskModal() {
-            document.getElementById('addTaskModal').style.display = 'block';
-        }
-
-        // Close modal
-        function closeModal() {
-            document.getElementById('addTaskModal').style.display = 'none';
-            document.getElementById('addTaskForm').reset();
-            delete document.getElementById('addTaskForm').dataset.editId;
-            document.querySelector('#addTaskModal h2').textContent = 'Add New Task';
-        }
-
-        // Export data
-        function exportData() {
-            const dataStr = JSON.stringify(tasks, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'tasks.json';
-            link.click();
-        }
-
-        // Event listeners
-        document.getElementById('addTaskForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            const taskData = {
-                title: document.getElementById('taskTitle').value,
-                description: document.getElementById('taskDescription').value,
-                category: document.getElementById('taskCategory').value,
-                subject: document.getElementById('taskSubject').value,
-                priority: document.getElementById('taskPriority').value,
-                dueDate: document.getElementById('taskDueDate').value,
-                estimatedTime: document.getElementById('taskEstimatedTime').value,
-                important: document.getElementById('taskImportant').checked,
-                addToMyDay: document.getElementById('taskAddToMyDay').checked
+        function setInstructions(gameType) {
+            const instructions = {
+                'snake': 'Use WASD or Arrow Keys to move. Eat food to grow, avoid walls and yourself!',
+                'tetris': 'Use A/D or Left/Right to move, S or Down to drop faster, W or Up to rotate.',
+                'pong': 'Use W/S or Up/Down arrows to move your paddle. First to 10 points wins!',
+                'spaceinvaders': 'Use A/D or Left/Right to move, Space to shoot. Destroy all aliens!',
+                'pacman': 'Use WASD or Arrow Keys to move. Eat all dots while avoiding ghosts!',
+                'breakout': 'Use A/D or Left/Right to move paddle. Break all bricks to win!',
+                'asteroids': 'Use W/A/S/D to move and rotate, Space to shoot. Avoid asteroids!',
+                'circus': 'Use A/D or Left/Right to move paddle. Pop balloons for points!',
+                'stardust': 'Use WASD or Arrow Keys to move. Collect stars, avoid debris!',
+                'memory': 'Watch the pattern, then click the tiles in the same order!'
             };
             
-            const editId = this.dataset.editId;
-            if (editId) {
-                // Edit existing task
-                const task = tasks.find(t => t.id === editId);
-                if (task) {
-                    Object.assign(task, taskData);
-                    saveData();
-                    updateUI();
-                }
-            } else {
-                // Add new task
-                addTask(taskData);
+            document.getElementById('instructions').innerHTML = `<strong>How to Play:</strong> ${instructions[gameType]}`;
+        }
+
+        function backToMenu() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            document.getElementById('main-menu').style.display = 'block';
+            document.getElementById('game-area').style.display = 'none';
+            currentGame = null;
+        }
+
+        function restartGame() {
+            if (currentGame) {
+                startGame(currentGame);
+            }
+        }
+
+        function endGame(score) {
+            gameData.totalGames = (gameData.totalGames || 0) + 1;
+            gameData.totalScore = (gameData.totalScore || 0) + score;
+            
+            if (!gameData.highScores[currentGame] || score > gameData.highScores[currentGame]) {
+                gameData.highScores[currentGame] = score;
+                alert(`New high score in ${currentGame.toUpperCase()}: ${score}!`);
             }
             
-            closeModal();
-        });
+            saveUserData();
+            updateUserStats();
+        }
 
-        // Sidebar navigation
-        document.querySelectorAll('.list-item').forEach(item => {
-            item.addEventListener('click', function() {
-                document.querySelectorAll('.list-item').forEach(i => i.classList.remove('active'));
-                this.classList.add('active');
-                
-                currentList = this.dataset.list;
-                const titles = {
-                    'my-day': 'Today',
-                    'important': 'Important',
-                    'assignments': 'Assignments',
-                    'exams': 'Exams',
-                    'projects': 'Projects',
-                    'study': 'Study',
-                    'completed': 'Completed'
-                };
-                document.getElementById('currentListTitle').textContent = titles[currentList];
-                updateTaskList();
-            });
-        });
+        // Snake Game
+        function startSnake() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const gridSize = 20;
+            
+            let snake = [{x: 10, y: 10}];
+            let food = {x: 15, y: 15};
+            let dx = 0;
+            let dy = 0;
+            let score = 0;
 
-        // Search functionality
-        document.getElementById('searchBar').addEventListener('input', updateTaskList);
+            function gameLoop() {
+                // Clear canvas
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Close modal when clicking outside
-        window.addEventListener('click', function(e) {
-            if (e.target === document.getElementById('addTaskModal')) {
-                closeModal();
+                // Move snake
+                const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+                snake.unshift(head);
+
+                // Check food collision
+                if (head.x === food.x && head.y === food.y) {
+                    score += 10;
+                    document.getElementById('score').textContent = score;
+                    food = {
+                        x: Math.floor(Math.random() * (canvas.width / gridSize)),
+                        y: Math.floor(Math.random() * (canvas.height / gridSize))
+                    };
+                } else {
+                    snake.pop();
+                }
+
+                // Check wall collision
+                if (head.x < 0 || head.x >= canvas.width / gridSize || 
+                    head.y < 0 || head.y >= canvas.height / gridSize) {
+                    endGame(score);
+                    alert('Game Over! Score: ' + score);
+                    return;
+                }
+
+                // Check self collision
+                for (let i = 1; i < snake.length; i++) {
+                    if (head.x === snake[i].x && head.y === snake[i].y) {
+                        endGame(score);
+                        alert('Game Over! Score: ' + score);
+                        return;
+                    }
+                }
+
+                // Draw snake
+                ctx.fillStyle = '#0ff';
+                snake.forEach(segment => {
+                    ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
+                });
+
+                // Draw food
+                ctx.fillStyle = '#f0f';
+                ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+
+                animationId = requestAnimationFrame(() => setTimeout(gameLoop, 150));
             }
-        });
 
-        // Initialize
-        loadData();
-        updateUI();
-    </script>
-</body>
-</html>
+            // Controls
+            document.addEventListener('keydown', (e) => {
+                if (currentGame !== 'snake') return;
+                
+                switch(e.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        if (dy === 0) { dx = 0; dy = -1; }
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        if (dy === 0) { dx = 0; dy = 1; }
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        if (dx === 0) { dx = -1; dy = 0; }
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        if (dx === 0) { dx = 1; dy = 0; }
+                        break;
+                }
+            });
+
+            gameLoop();
+        }
+
+        // Tetris Game
+        function startTetris() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const BLOCK_SIZE = 30;
+            const BOARD_WIDTH = 10;
+            const BOARD_HEIGHT = 20;
+            
+            let board = Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0));
+            let currentPiece = null;
+            let currentX = 0;
+            let currentY = 0;
+            let score = 0;
+            let level = 1;
+            let linesCleared = 0;
+
+            const pieces = [
+                [[1,1,1,1]], // I
+                [[1,1],[1,1]], // O
+                [[0,1,0],[1,1,1]], // T
+                [[1,0,0],[1,1,1]], // L
+                [[0,0,1],[1,1,1]], // J
+                [[1,1,0],[0,1,1]], // S
+                [[0,1,1],[1,1,0]]  // Z
+            ];
+
+            const colors = ['#000', '#0ff', '#ff0', '#f0f', '#0f0', '#00f', '#f00', '#fa0'];
+
+            function createPiece() {
+                currentPiece = pieces[Math.floor(Math.random() * pieces.length)];
+                currentX = Math.floor(BOARD_WIDTH / 2) - Math.floor(currentPiece[0].length / 2);
+                currentY = 0;
+                
+                if (collision()) {
+                    endGame(score);
+                    alert('Game Over! Score: ' + score);
+                    return false;
+                }
+                return true;
+            }
+
+            function collision() {
+                for (let y = 0; y < currentPiece.length; y++) {
+                    for (let x = 0; x < currentPiece[y].length; x++) {
+                        if (currentPiece[y][x]) {
+                            const newX = currentX + x;
+                            const newY = currentY + y;
+                            
+                            if (newX < 0 || newX >= BOARD_WIDTH || newY >= BOARD_HEIGHT) {
+                                return true;
+                            }
+                            if (newY >= 0 && board[newY][newX]) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+
+            function placePiece() {
+                for (let y = 0; y < currentPiece.length; y++) {
+                    for (let x = 0; x < currentPiece[y].length; x++) {
+                        if (currentPiece[y][x]) {
+                            const newX = currentX + x;
+                            const newY = currentY + y;
+                            if (newY >= 0) {
+                                board[newY][newX] = Math.floor(Math.random() * 7) + 1;
+                            }
+                        }
+                    }
+                }
+                
+                // Check for complete lines
+                for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
+                    if (board[y].every(cell => cell !== 0)) {
+                        board.splice(y, 1);
+                        board.unshift(Array(BOARD_WIDTH).fill(0));
+                        linesCleared++;
+                        score += 100 * level;
+                        level = Math.floor(linesCleared / 10) + 1;
+                        document.getElementById('score').textContent = score;
+                        document.getElementById('level').textContent = level;
+                        y++; // Check same line again
+                    }
+                }
+            }
+
+            function rotatePiece() {
+                const rotated = currentPiece[0].map((_, i) => 
+                    currentPiece.map(row => row[i]).reverse()
+                );
+                const originalPiece = currentPiece;
+                currentPiece = rotated;
+                if (collision()) {
+                    currentPiece = originalPiece;
+                }
+            }
+
+            function draw() {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw board
+                for (let y = 0; y < BOARD_HEIGHT; y++) {
+                    for (let x = 0; x < BOARD_WIDTH; x++) {
+                        if (board[y][x]) {
+                            ctx.fillStyle = colors[board[y][x]];
+                            ctx.fillRect(x * BLOCK_SIZE + 100, y * BLOCK_SIZE + 50, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                        }
+                    }
+                }
+
+                // Draw current piece
+                if (currentPiece) {
+                    ctx.fillStyle = '#0ff';
+                    for (let y = 0; y < currentPiece.length; y++) {
+                        for (let x = 0; x < currentPiece[y].length; x++) {
+                            if (currentPiece[y][x]) {
+                                ctx.fillRect(
+                                    (currentX + x) * BLOCK_SIZE + 100, 
+                                    (currentY + y) * BLOCK_SIZE + 50, 
+                                    BLOCK_SIZE - 1, 
+                                    BLOCK_SIZE - 1
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Draw grid
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                for (let x = 0; x <= BOARD_WIDTH; x++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x * BLOCK_SIZE + 100, 50);
+                    ctx.lineTo(x * BLOCK_SIZE + 100, BOARD_HEIGHT * BLOCK_SIZE + 50);
+                    ctx.stroke();
+                }
+                for (let y = 0; y <= BOARD_HEIGHT; y++) {
+                    ctx.beginPath();
+                    ctx.moveTo(100, y * BLOCK_SIZE + 50);
+                    ctx.lineTo(BOARD_WIDTH * BLOCK_SIZE + 100, y * BLOCK_SIZE + 50);
+                    ctx.stroke();
+                }
+            }
+
+            function gameLoop() {
+                if (!currentPiece) {
+                    if (!createPiece()) return;
+                }
+
+                // Move piece down
+                currentY++;
+                if (collision()) {
+                    currentY--;
+                    placePiece();
+                    currentPiece = null;
+                }
+
+                draw();
+                animationId = requestAnimationFrame(() => setTimeout(gameLoop, Math.max(50, 500 - level * 50)));
+            }
+
+            //
