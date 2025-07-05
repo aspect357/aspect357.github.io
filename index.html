@@ -1,932 +1,597 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Todo App - Advanced Todo List</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-            position: relative;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
-        .title-section {
-            text-align: center;
-            flex: 1;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 2.5em;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        h1:hover {
-            transform: scale(1.05);
-        }
-
-        .subtitle {
-            color: #666;
-            font-size: 1.1em;
-        }
-
-        .settings-btn {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            cursor: pointer;
-            font-size: 20px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        .settings-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .settings-panel {
-            position: fixed;
-            top: 0;
-            right: -400px;
-            width: 400px;
-            height: 100vh;
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(10px);
-            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
-            transition: right 0.3s ease;
-            z-index: 1000;
-            padding: 30px;
-            overflow-y: auto;
-        }
-
-        .settings-panel.open {
-            right: 0;
-        }
-
-        .settings-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .settings-title {
-            font-size: 1.5em;
-            color: #333;
-            font-weight: 600;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #666;
-            transition: color 0.3s ease;
-        }
-
-        .close-btn:hover {
-            color: #333;
-        }
-
-        .setting-group {
-            margin-bottom: 25px;
-        }
-
-        .setting-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #555;
-        }
-
-        .setting-input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            outline: none;
-            transition: all 0.3s ease;
-        }
-
-        .setting-input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
-        }
-
-        .preset-themes {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .theme-option {
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-        }
-
-        .theme-option:hover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.1);
-        }
-
-        .theme-option.selected {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.2);
-        }
-
-        .input-section {
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .input-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            align-items: center;
-        }
-
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .input-group label {
-            font-size: 12px;
-            color: #666;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        #todoInput {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            outline: none;
-            transition: all 0.3s ease;
-        }
-
-        #todoInput:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
-        }
-
-        #categorySelect, #prioritySelect, #dueDateInput, #dueTimeInput {
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 14px;
-            outline: none;
-            transition: all 0.3s ease;
-            background: white;
-        }
-
-        #categorySelect:focus, #prioritySelect:focus, #dueDateInput:focus, #dueTimeInput:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
-        }
-
-        #addBtn {
-            padding: 15px 25px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        #addBtn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .filters {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .filter-btn {
-            padding: 8px 16px;
-            border: 2px solid #e0e0e0;
-            background: white;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        .filter-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-
-        .search-box {
-            flex: 1;
-            min-width: 200px;
-            padding: 8px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 20px;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .search-box:focus {
-            border-color: #667eea;
-        }
-
-        #todoList {
-            list-style: none;
-        }
-
-        .todo-item {
-            background: white;
-            margin: 15px 0;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            border-left: 4px solid #667eea;
-            position: relative;
-        }
-
-        .todo-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        }
-
-        .todo-item.completed {
-            opacity: 0.7;
-            border-left-color: #4caf50;
-        }
-
-        .todo-item.completed .todo-text {
-            text-decoration: line-through;
-        }
-
-        .todo-item.high-priority {
-            border-left-color: #f44336;
-        }
-
-        .todo-item.medium-priority {
-            border-left-color: #ff9800;
-        }
-
-        .todo-item.low-priority {
-            border-left-color: #4caf50;
-        }
-
-        .todo-item.overdue {
-            background: linear-gradient(135deg, #ffebee, #fff);
-            border-left-color: #f44336;
-        }
-
-        .todo-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 10px;
-        }
-
-        .todo-text {
-            font-size: 16px;
-            color: #333;
-            font-weight: 500;
-            margin-bottom: 5px;
-        }
-
-        .todo-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 15px;
-            font-size: 12px;
-        }
-
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            padding: 4px 8px;
-            background: rgba(102, 126, 234, 0.1);
-            border-radius: 12px;
-            color: #667eea;
-        }
-
-        .category-tag {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 15px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .priority-high { background: linear-gradient(135deg, #f44336, #d32f2f); }
-        .priority-medium { background: linear-gradient(135deg, #ff9800, #f57c00); }
-        .priority-low { background: linear-gradient(135deg, #4caf50, #388e3c); }
-
-        .todo-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .action-btn {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-
-        .complete-btn {
-            background: #4caf50;
-            color: white;
-        }
-
-        .complete-btn:hover {
-            background: #45a049;
-            transform: scale(1.05);
-        }
-
-        .edit-btn {
-            background: #2196f3;
-            color: white;
-        }
-
-        .edit-btn:hover {
-            background: #1976d2;
-            transform: scale(1.05);
-        }
-
-        .delete-btn {
-            background: #f44336;
-            color: white;
-        }
-
-        .delete-btn:hover {
-            background: #d32f2f;
-            transform: scale(1.05);
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 30px;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.8);
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .stat-number {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: #666;
-            font-style: italic;
-            margin: 40px 0;
-            padding: 40px;
-            background: rgba(255, 255, 255, 0.5);
-            border-radius: 12px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 4px;
-            overflow: hidden;
-            margin: 20px 0;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            transition: width 0.3s ease;
-        }
-
-        .time-info {
-            font-size: 11px;
-            color: #999;
-            margin-top: 5px;
-        }
-
-        .overdue-badge {
-            background: #f44336;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        .due-soon-badge {
-            background: #ff9800;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        .overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 999;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .overlay.show {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                margin: 10px;
-                padding: 20px;
-            }
-
-            .header {
-                flex-direction: column;
-                gap: 15px;
-            }
-
-            .settings-panel {
-                width: 100%;
-                right: -100%;
-            }
-
-            .input-row {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .filters {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .todo-header {
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .stats {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="overlay" id="overlay"></div>
+import React, { useState, useEffect } from 'react';
+import { Plus, Check, X, Edit2, Calendar, Clock, Star, Book, Target, User, Filter, Search, MoreHorizontal, Flag, Repeat } from 'lucide-react';
+
+const SchoolTodoApp = () => {
+  const [tasks, setTasks] = useState([]);
+  const [lists, setLists] = useState([
+    { id: 'inbox', name: 'Inbox', color: '#3B82F6', isDefault: true },
+    { id: 'assignments', name: 'Assignments', color: '#EF4444', isDefault: false },
+    { id: 'study', name: 'Study Sessions', color: '#10B981', isDefault: false },
+    { id: 'projects', name: 'Projects', color: '#F59E0B', isDefault: false },
+    { id: 'exams', name: 'Exams', color: '#8B5CF6', isDefault: false }
+  ]);
+  const [activeList, setActiveList] = useState('inbox');
+  const [newTask, setNewTask] = useState('');
+  const [editingTask, setEditingTask] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showTaskDetails, setShowTaskDetails] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showNewListForm, setShowNewListForm] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [view, setView] = useState('tasks'); // 'tasks', 'calendar', 'progress'
+
+  // Priority levels
+  const priorities = {
+    high: { label: 'High', color: '#EF4444', icon: '🔴' },
+    medium: { label: 'Medium', color: '#F59E0B', icon: '🟡' },
+    low: { label: 'Low', color: '#10B981', icon: '🟢' },
+    none: { label: 'None', color: '#6B7280', icon: '⚪' }
+  };
+
+  // Add sample tasks for demonstration
+  useEffect(() => {
+    if (tasks.length === 0) {
+      const sampleTasks = [
+        {
+          id: Date.now() + 1,
+          text: 'Complete Math homework - Chapter 5',
+          completed: false,
+          listId: 'assignments',
+          priority: 'high',
+          dueDate: '2025-07-07',
+          notes: 'Focus on problems 1-15, review quadratic equations',
+          subject: 'Mathematics',
+          estimatedTime: 60,
+          createdAt: new Date().toISOString(),
+          tags: ['homework', 'math'],
+          subtasks: [
+            { id: 1, text: 'Read Chapter 5', completed: true },
+            { id: 2, text: 'Solve problems 1-10', completed: false },
+            { id: 3, text: 'Review examples', completed: false }
+          ]
+        },
+        {
+          id: Date.now() + 2,
+          text: 'Study for Biology exam',
+          completed: false,
+          listId: 'study',
+          priority: 'high',
+          dueDate: '2025-07-10',
+          notes: 'Review chapters 8-12, focus on cellular respiration',
+          subject: 'Biology',
+          estimatedTime: 120,
+          createdAt: new Date().toISOString(),
+          tags: ['exam', 'biology'],
+          subtasks: []
+        },
+        {
+          id: Date.now() + 3,
+          text: 'Research paper outline - History',
+          completed: false,
+          listId: 'projects',
+          priority: 'medium',
+          dueDate: '2025-07-15',
+          notes: 'Topic: World War II impact on society',
+          subject: 'History',
+          estimatedTime: 90,
+          createdAt: new Date().toISOString(),
+          tags: ['research', 'history'],
+          subtasks: []
+        }
+      ];
+      setTasks(sampleTasks);
+    }
+  }, []);
+
+  const addTask = () => {
+    if (newTask.trim()) {
+      const task = {
+        id: Date.now(),
+        text: newTask,
+        completed: false,
+        listId: activeList,
+        priority: 'none',
+        dueDate: '',
+        notes: '',
+        subject: '',
+        estimatedTime: 0,
+        createdAt: new Date().toISOString(),
+        tags: [],
+        subtasks: []
+      };
+      setTasks([...tasks, task]);
+      setNewTask('');
+    }
+  };
+
+  const toggleTask = (id) => {
+    setTasks(tasks.map(task => 
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ));
+  };
+
+  const deleteTask = (id) => {
+    setTasks(tasks.filter(task => task.id !== id));
+    if (selectedTask && selectedTask.id === id) {
+      setSelectedTask(null);
+      setShowTaskDetails(false);
+    }
+  };
+
+  const updateTask = (id, updates) => {
+    setTasks(tasks.map(task => 
+      task.id === id ? { ...task, ...updates } : task
+    ));
+    if (selectedTask && selectedTask.id === id) {
+      setSelectedTask({ ...selectedTask, ...updates });
+    }
+  };
+
+  const addList = () => {
+    if (newListName.trim()) {
+      const newList = {
+        id: Date.now().toString(),
+        name: newListName,
+        color: '#6B7280',
+        isDefault: false
+      };
+      setLists([...lists, newList]);
+      setNewListName('');
+      setShowNewListForm(false);
+    }
+  };
+
+  const filteredTasks = tasks.filter(task => {
+    const matchesList = task.listId === activeList;
+    const matchesSearch = task.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         task.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         task.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    <div class="container">
-        <div class="header">
-            <div></div>
-            <div class="title-section">
-                <h1 id="appTitle">🚀 My Todo App</h1>
-                <p class="subtitle" id="appSubtitle">Advanced Todo List with Smart Features</p>
+    let matchesFilter = true;
+    if (filter === 'completed') matchesFilter = task.completed;
+    if (filter === 'pending') matchesFilter = !task.completed;
+    if (filter === 'today') {
+      const today = new Date().toISOString().split('T')[0];
+      matchesFilter = task.dueDate === today;
+    }
+    if (filter === 'overdue') {
+      const today = new Date().toISOString().split('T')[0];
+      matchesFilter = task.dueDate && task.dueDate < today && !task.completed;
+    }
+    if (filter === 'high-priority') matchesFilter = task.priority === 'high';
+
+    return matchesList && matchesSearch && matchesFilter;
+  });
+
+  const getTaskStats = () => {
+    const total = tasks.length;
+    const completed = tasks.filter(t => t.completed).length;
+    const pending = total - completed;
+    const overdue = tasks.filter(t => {
+      const today = new Date().toISOString().split('T')[0];
+      return t.dueDate && t.dueDate < today && !t.completed;
+    }).length;
+    
+    return { total, completed, pending, overdue };
+  };
+
+  const stats = getTaskStats();
+
+  const TaskItem = ({ task }) => (
+    <div className={`p-4 border rounded-lg mb-2 bg-white hover:shadow-md transition-shadow ${task.completed ? 'opacity-60' : ''}`}>
+      <div className="flex items-start gap-3">
+        <button
+          onClick={() => toggleTask(task.id)}
+          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-1 ${
+            task.completed ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-blue-500'
+          }`}
+        >
+          {task.completed && <Check size={12} className="text-white" />}
+        </button>
+        
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className={`font-medium ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+              {task.text}
+            </h3>
+            {task.priority !== 'none' && (
+              <span className="text-xs">{priorities[task.priority].icon}</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-4 text-sm text-gray-500">
+            {task.subject && (
+              <span className="flex items-center gap-1">
+                <Book size={12} />
+                {task.subject}
+              </span>
+            )}
+            {task.dueDate && (
+              <span className="flex items-center gap-1">
+                <Calendar size={12} />
+                {new Date(task.dueDate).toLocaleDateString()}
+              </span>
+            )}
+            {task.estimatedTime > 0 && (
+              <span className="flex items-center gap-1">
+                <Clock size={12} />
+                {task.estimatedTime}min
+              </span>
+            )}
+          </div>
+          
+          {task.tags.length > 0 && (
+            <div className="flex gap-1 mt-2">
+              {task.tags.map(tag => (
+                <span key={tag} className="px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-600">
+                  {tag}
+                </span>
+              ))}
             </div>
-            <button class="settings-btn" id="settingsBtn">⚙️</button>
+          )}
         </div>
         
-        <div class="input-section">
-            <div class="input-row">
-                <div class="input-group" style="flex: 1;">
-                    <label for="todoInput">Task Description</label>
-                    <input type="text" id="todoInput" placeholder="What needs to be done?" maxlength="200">
-                </div>
+        <div className="flex gap-1">
+          <button
+            onClick={() => {
+              setSelectedTask(task);
+              setShowTaskDetails(true);
+            }}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <Edit2 size={14} />
+          </button>
+          <button
+            onClick={() => deleteTask(task.id)}
+            className="p-1 hover:bg-gray-100 rounded text-red-500"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const TaskDetails = ({ task, onClose, onUpdate }) => {
+    const [editedTask, setEditedTask] = useState(task);
+
+    const handleSave = () => {
+      onUpdate(task.id, editedTask);
+      onClose();
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Task Details</h2>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+              <X size={20} />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
+              <input
+                type="text"
+                value={editedTask.text}
+                onChange={(e) => setEditedTask({ ...editedTask, text: e.target.value })}
+                className="w-full p-2 border rounded-md"
+              />
             </div>
             
-            <div class="input-row">
-                <div class="input-group">
-                    <label for="categorySelect">Category</label>
-                    <select id="categorySelect">
-                        <option value="personal">🏠 Personal</option>
-                        <option value="work">💼 Work</option>
-                        <option value="health">🏥 Health</option>
-                        <option value="education">📚 Education</option>
-                        <option value="shopping">🛒 Shopping</option>
-                        <option value="finance">💰 Finance</option>
-                        <option value="travel">✈️ Travel</option>
-                        <option value="hobby">🎨 Hobby</option>
-                    </select>
-                </div>
-                
-                <div class="input-group">
-                    <label for="prioritySelect">Priority</label>
-                    <select id="prioritySelect">
-                        <option value="low">🟢 Low</option>
-                        <option value="medium">🟡 Medium</option>
-                        <option value="high">🔴 High</option>
-                    </select>
-                </div>
-                
-                <div class="input-group">
-                    <label for="dueDateInput">Due Date</label>
-                    <input type="date" id="dueDateInput">
-                </div>
-                
-                <div class="input-group">
-                    <label for="dueTimeInput">Due Time</label>
-                    <input type="time" id="dueTimeInput">
-                </div>
-                
-                <button id="addBtn">Add Task</button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+              <input
+                type="text"
+                value={editedTask.subject}
+                onChange={(e) => setEditedTask({ ...editedTask, subject: e.target.value })}
+                className="w-full p-2 border rounded-md"
+                placeholder="e.g., Mathematics, Biology"
+              />
             </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <select
+                value={editedTask.priority}
+                onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value })}
+                className="w-full p-2 border rounded-md"
+              >
+                {Object.entries(priorities).map(([key, priority]) => (
+                  <option key={key} value={key}>{priority.label}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+              <input
+                type="date"
+                value={editedTask.dueDate}
+                onChange={(e) => setEditedTask({ ...editedTask, dueDate: e.target.value })}
+                className="w-full p-2 border rounded-md"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time (minutes)</label>
+              <input
+                type="number"
+                value={editedTask.estimatedTime}
+                onChange={(e) => setEditedTask({ ...editedTask, estimatedTime: parseInt(e.target.value) || 0 })}
+                className="w-full p-2 border rounded-md"
+                min="0"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <textarea
+                value={editedTask.notes}
+                onChange={(e) => setEditedTask({ ...editedTask, notes: e.target.value })}
+                className="w-full p-2 border rounded-md"
+                rows="3"
+                placeholder="Add notes, study tips, or reminders..."
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma-separated)</label>
+              <input
+                type="text"
+                value={editedTask.tags.join(', ')}
+                onChange={(e) => setEditedTask({ ...editedTask, tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag) })}
+                className="w-full p-2 border rounded-md"
+                placeholder="homework, urgent, exam"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2 mt-6">
+            <button
+              onClick={handleSave}
+              className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
+            >
+              Save Changes
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
+      </div>
+    );
+  };
 
-        <div class="filters">
-            <button class="filter-btn active" data-filter="all">All Tasks</button>
-            <button class="filter-btn" data-filter="pending">Pending</button>
-            <button class="filter-btn" data-filter="completed">Completed</button>
-            <button class="filter-btn" data-filter="overdue">Overdue</button>
-            <button class="filter-btn" data-filter="today">Due Today</button>
-            <input type="text" class="search-box" id="searchInput" placeholder="Search tasks...">
+  const ProgressView = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
+          <div className="text-sm text-gray-600">Total Tasks</div>
         </div>
-
-        <div class="progress-bar">
-            <div class="progress-fill" id="progressFill"></div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+          <div className="text-sm text-gray-600">Completed</div>
         </div>
-
-        <ul id="todoList"></ul>
-
-        <div class="empty-state" id="emptyState">
-            🎯 No tasks yet! Add your first task above to get started.
+        <div className="bg-yellow-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
+          <div className="text-sm text-gray-600">Pending</div>
         </div>
-
-        <div class="stats" id="stats" style="display: none;">
-            <div class="stat-card">
-                <div class="stat-number" id="totalTasks">0</div>
-                <div class="stat-label">Total Tasks</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="completedTasks">0</div>
-                <div class="stat-label">Completed</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="pendingTasks">0</div>
-                <div class="stat-label">Pending</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="overdueTasks">0</div>
-                <div class="stat-label">Overdue</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="completionRate">0%</div>
-                <div class="stat-label">Completion Rate</div>
-            </div>
+        <div className="bg-red-50 p-4 rounded-lg">
+          <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
+          <div className="text-sm text-gray-600">Overdue</div>
         </div>
+      </div>
+      
+      <div className="bg-white p-6 rounded-lg border">
+        <h3 className="text-lg font-semibold mb-4">Progress by Subject</h3>
+        <div className="space-y-3">
+          {Object.entries(
+            tasks.reduce((acc, task) => {
+              if (task.subject) {
+                if (!acc[task.subject]) acc[task.subject] = { total: 0, completed: 0 };
+                acc[task.subject].total++;
+                if (task.completed) acc[task.subject].completed++;
+              }
+              return acc;
+            }, {})
+          ).map(([subject, data]) => (
+            <div key={subject} className="flex items-center gap-4">
+              <div className="w-20 text-sm font-medium">{subject}</div>
+              <div className="flex-1 bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-500 h-2 rounded-full"
+                  style={{ width: `${(data.completed / data.total) * 100}%` }}
+                />
+              </div>
+              <div className="text-sm text-gray-600">
+                {data.completed}/{data.total}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
+  );
 
-    <!-- Settings Panel -->
-    <div class="settings-panel" id="settingsPanel">
-        <div class="settings-header">
-            <h2 class="settings-title">⚙️ Settings</h2>
-            <button class="close-btn" id="closeSettings">×</button>
-        </div>
-        
-        <div class="setting-group">
-            <label class="setting-label">App Name</label>
-            <input type="text" class="setting-input" id="appNameInput" placeholder="Enter your app name">
-        </div>
-        
-        <div class="setting-group">
-            <label class="setting-label">App Subtitle</label>
-            <input type="text" class="setting-input" id="appSubtitleInput" placeholder="Enter your app subtitle">
-        </div>
-        
-        <div class="setting-group">
-            <label class="setting-label">Choose Theme</label>
-            <div class="preset-themes">
-                <div class="theme-option" data-theme="default">
-                    <strong>🌟 Default</strong><br>
-                    <small>Purple gradient theme</small>
-                </div>
-                <div class="theme-option" data-theme="ocean">
-                    <strong>🌊 Ocean</strong><br>
-                    <small>Blue gradient theme</small>
-                </div>
-                <div class="theme-option" data-theme="sunset">
-                    <strong>🌅 Sunset</strong><br>
-                    <small>Orange gradient theme</small>
-                </div>
-                <div class="theme-option" data-theme="forest">
-                    <strong>🌲 Forest</strong><br>
-                    <small>Green gradient theme</small>
-                </div>
-                <div class="theme-option" data-theme="rose">
-                    <strong>🌹 Rose</strong><br>
-                    <small>Pink gradient theme</small>
-                </div>
+  return (
+    <div className="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen">
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Sidebar */}
+        <div className="lg:w-64 space-y-4">
+          <div className="bg-white p-4 rounded-lg border">
+            <h1 className="text-xl font-bold text-gray-800 mb-4">School Success</h1>
+            
+            <div className="space-y-1">
+              <button
+                onClick={() => setView('tasks')}
+                className={`w-full text-left p-2 rounded-md ${view === 'tasks' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+              >
+                📋 My Tasks
+              </button>
+              <button
+                onClick={() => setView('progress')}
+                className={`w-full text-left p-2 rounded-md ${view === 'progress' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
+              >
+                📊 Progress
+              </button>
             </div>
+          </div>
+          
+          {view === 'tasks' && (
+            <div className="bg-white p-4 rounded-lg border">
+              <h3 className="font-semibold text-gray-700 mb-3">Lists</h3>
+              <div className="space-y-1">
+                {lists.map(list => (
+                  <button
+                    key={list.id}
+                    onClick={() => setActiveList(list.id)}
+                    className={`w-full text-left p-2 rounded-md flex items-center gap-2 ${
+                      activeList === list.id ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: list.color }} />
+                    <span className="flex-1">{list.name}</span>
+                    <span className="text-xs text-gray-500">
+                      {tasks.filter(t => t.listId === list.id).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              
+              {!showNewListForm ? (
+                <button
+                  onClick={() => setShowNewListForm(true)}
+                  className="w-full mt-3 p-2 text-left text-blue-600 hover:bg-blue-50 rounded-md flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  Add List
+                </button>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  <input
+                    type="text"
+                    value={newListName}
+                    onChange={(e) => setNewListName(e.target.value)}
+                    placeholder="List name"
+                    className="w-full p-2 border rounded-md text-sm"
+                    onKeyPress={(e) => e.key === 'Enter' && addList()}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={addList}
+                      className="flex-1 p-1 bg-blue-500 text-white rounded-md text-sm"
+                    >
+                      Add
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowNewListForm(false);
+                        setNewListName('');
+                      }}
+                      className="flex-1 p-1 bg-gray-300 text-gray-700 rounded-md text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
-        <div class="setting-group">
-            <label class="setting-label">App Icon</label>
-            <input type="text" class="setting-input" id="appIconInput" placeholder="Enter emoji or icon (e.g., 🚀, ✅, 📝)">
+        {/* Main Content */}
+        <div className="flex-1">
+          {view === 'tasks' ? (
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">
+                  {lists.find(l => l.id === activeList)?.name || 'Tasks'}
+                </h2>
+                <div className="flex gap-2">
+                  <div className="relative">
+                    <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search tasks..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 pr-4 py-2 border rounded-md text-sm"
+                    />
+                  </div>
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="p-2 border rounded-md text-sm"
+                  >
+                    <option value="all">All Tasks</option>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="today">Due Today</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="high-priority">High Priority</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newTask}
+                  onChange={(e) => setNewTask(e.target.value)}
+                  placeholder="Add a new task..."
+                  className="flex-1 p-3 border rounded-md"
+                  onKeyPress={(e) => e.key === 'Enter' && addTask()}
+                />
+                <button
+                  onClick={addTask}
+                  className="bg-blue-500 text-white px-4 py-3 rounded-md hover:bg-blue-600 flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  Add Task
+                </button>
+              </div>
+              
+              <div className="space-y-2">
+                {filteredTasks.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    {searchTerm ? 'No tasks match your search.' : 'No tasks yet. Add one above!'}
+                  </div>
+                ) : (
+                  filteredTasks.map(task => (
+                    <TaskItem key={task.id} task={task} />
+                  ))
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border p-6">
+              <h2 className="text-xl font-semibold mb-6">Progress Overview</h2>
+              <ProgressView />
+            </div>
+          )}
         </div>
+      </div>
+      
+      {showTaskDetails && selectedTask && (
+        <TaskDetails
+          task={selectedTask}
+          onClose={() => {
+            setShowTaskDetails(false);
+            setSelectedTask(null);
+          }}
+          onUpdate={updateTask}
+        />
+      )}
     </div>
+  );
+};
 
-    <script>
-        class TodoApp {
-            constructor() {
-                this.todos = this.loadTodos();
-                this.settings = this.loadSettings();
-                this.currentFilter = 'all';
-                this.searchTerm = '';
-                this.initElements();
-                this.initEventListeners();
-                this.applySettings();
-                this.render();
-                this.setDefaultDateTime();
-            }
-
-            initElements() {
-                this.todoInput = document.getElementById('todoInput');
-                this.categorySelect = document.getElementById('categorySelect');
-                this.prioritySelect = document.getElementById('prioritySelect');
-                this.dueDateInput = document.getElementById('dueDateInput');
-                this.dueTimeInput = document.getElementById('dueTimeInput');
-                this.addBtn = document.getElementById('addBtn');
-                this.todoList = document.getElementById('todoList');
-                this.emptyState = document.getElementById('emptyState');
-                this.stats = document.getElementById('stats');
-                this.searchInput = document.getElementById('searchInput');
-                this.progressFill = document.getElementById('progressFill');
-                this.settingsBtn = document.getElementById('settingsBtn');
-                this.settingsPanel = document.getElementById('settingsPanel');
-                this.closeSettings = document.getElementById('closeSettings');
-                this.overlay = document.getElementById('overlay');
-                this.appTitle = document.getElementById('appTitle');
-                this.appSubtitle = document.getElementById('appSubtitle');
-                this.appNameInput = document.getElementById('appNameInput');
-                this.appSubtitleInput = document.getElementById('appSubtitleInput');
-                this.appIconInput = document.getElementById('appIconInput');
-            }
-
-            initEventListeners() {
-                this.addBtn.addEventListener('click', () => this.addTodo());
-                this.todoInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') this.addTodo();
-                });
-
-                // Filter buttons
-                document.querySelectorAll('.filter-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                        e.target.classList.add('active');
-                        this.currentFilter = e.target.dataset.filter;
-                        this.render();
-                    });
-                });
-
-                // Search
-                this.searchInput.addEventListener('input', (e) => {
-                    this.searchTerm = e.target.value.toLowerCase();
-                    this.render();
-                });
-
-                // Settings panel
-                this.settingsBtn.addEventListener('click', () => this.openSettings());
-                this.closeSettings.addEventListener('click', () => this.closeSettingsPanel());
-                this.overlay.addEventListener('click', () => this.closeSettingsPanel());
-
-                // Settings inputs
-                this.appNameInput.addEventListener('input', (e) => {
-                    this.settings.appName = e.target.value;
-                    this.updateTitle();
-                    this.saveSettings();
-                });
-
-                this.appSubtitleInput.addEventListener('input', (e) => {
-                    this.settings.appSubtitle = e.target.value;
-                    this.updateSubtitle();
-                    this.saveSettings();
-                });
-
-                this.appIconInput.addEventListener('input', (e) => {
-                    this.settings.appIcon = e.target.value;
-                    this.updateTitle();
-                    this.saveSettings();
-                });
-
-                // Theme selection
-                document.querySelectorAll('.theme-option').forEach(option => {
-                    option.addEventListener('click', (e) => {
-                        document.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('selected'));
-                        e.currentTarget.classList.add('selected');
-                        this.settings.theme = e.currentTarget.dataset.theme;
-                        this.applyTheme();
-                        this.saveSettings();
-                    });
-                });
-            }
-
-            loadTodos() {
-                const saved = localStorage.getItem('todos');
-                return saved ? JSON.parse(saved) : [];
-            }
-
-            saveTodos() {
-                localStorage.setItem('todos', JSON.stringify(this.todos));
-            }
-
-            loadSettings() {
-                const saved = localStorage.getItem('todo-app-settings');
-                return saved ? JSON.parse(saved) : {
-                    appName: 'My Todo App',
-                    appSubtitle: 'Advanced Todo List with Smart Features',
-                    appIcon: '🚀',
-                    theme: 'default'
-                };
-            }
-
-            saveSettings() {
-                localStorage.setItem('todo-app-settings', JSON.stringify(this.settings));
-            }
-
-            generateId() {
-                return Date.now().toString(36) + Math.random().toString(36).substr(2);
-            }
-
-            setDefaultDateTime() {
-                const today = new Date();
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                
-                this.dueDateInput.value = tomorrow.toISOString().split('T')[0];
-                this.dueTimeInput.value = '12:00';
-            }
-
-            addTodo() {
-                const text = this.todoInput.value.trim();
-                if (!text) return;
-
-                const newTodo = {
-                    id: this.generateId(),
-                    text: text,
-                    category: this.categorySelect.value,
-                    priority: this.prioritySelect.value,
-                    dueDate: this.dueDateInput.value,
-                    dueTime: this.dueTimeInput.value,
-                    completed: false,
-                    createdAt: new Date().toISOString()
-                };
-
-                this.todos.push(newTodo);
-                this.saveTodos();
-                this.render();
-                this.clearInputs();
-            }
-
-            clearInputs() {
-                this.todoInput.value = '';
-                this.categorySelect.selectedIndex = 0;
-                this.prioritySelect.selectedIndex = 0;
-                this.setDefaultDateTime();
-            }
-
-            deleteTodo(id) {
-                this.todos = this.todos.filter(todo => todo.id !== id);
-                this.saveTodos();
-                this.render();
-            }
-
-            toggleTodo(id) {
-                const todo = this.todos.find(t => t.id === id);
-                if (todo) {
-                    todo.completed = !todo.completed;
-                    this.saveTodos();
-                    this.render();
-                }
-            }
-
-            editTodo(id) {
-                const todo = this.todos.find(t => t.id === id);
-                if (todo) {
-                    const newText = prompt('Edit task:', todo.text);
-                    if (newText !== null && newText.trim()) {
-                        todo.text = newText.trim();
-                        this.saveTodos();
-                        this.render();
-                    }
-                }
-            }
-
-            formatDateTime(date, time) {
-                if (!date) return '';
-                
-                const d = new Date(date);
-                const today = new Date();
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                
-                let dateStr = '';
-                if (d.toDateString() === today.toDateString()) {
-                    dateStr = 'Today';
-                } else if (d.toDateString() === tomorrow.toDateString()) {
-                    dateStr = 'Tomorrow';
-                } else {
-                    dateStr = d.toLocaleDateString();
-                }
-                
-                return time ? `${dateStr} at ${time}` : dateStr;
-            }
-
-            isOverdue(dueDate, dueTime) {
-                if (!dueDate) return false;
-                
-                const now = new Date();
-                const due = new Date(dueDate);
-                
-                if (dueTime) {
-                    const [hours, minutes] = dueTime.split(':');
+export default SchoolTodoApp;
