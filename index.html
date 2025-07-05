@@ -153,26 +153,6 @@
             box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
         }
 
-        .color-picker {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .color-option {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 3px solid transparent;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .color-option.selected {
-            border-color: #333;
-            transform: scale(1.1);
-        }
-
         .preset-themes {
             display: flex;
             flex-direction: column;
@@ -583,34 +563,6 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
-
-        /* Dark mode styles */
-        @media (prefers-color-scheme: dark) {
-            .container {
-                background: rgba(30, 30, 30, 0.95);
-                color: #fff;
-            }
-
-            .settings-panel {
-                background: rgba(30, 30, 30, 0.98);
-                color: #fff;
-            }
-
-            .todo-item {
-                background: rgba(50, 50, 50, 0.9);
-                color: #fff;
-            }
-
-            .input-section {
-                background: rgba(50, 50, 50, 0.5);
-            }
-
-            #todoInput, #categorySelect, #prioritySelect, #dueDateInput, #dueTimeInput, .setting-input {
-                background: rgba(60, 60, 60, 0.9);
-                color: #fff;
-                border-color: #555;
-            }
-        }
     </style>
 </head>
 <body>
@@ -765,7 +717,7 @@
     </div>
 
     <script>
-        class CustomTodoApp {
+        class TodoApp {
             constructor() {
                 this.todos = this.loadTodos();
                 this.settings = this.loadSettings();
@@ -859,6 +811,15 @@
                 });
             }
 
+            loadTodos() {
+                const saved = localStorage.getItem('todos');
+                return saved ? JSON.parse(saved) : [];
+            }
+
+            saveTodos() {
+                localStorage.setItem('todos', JSON.stringify(this.todos));
+            }
+
             loadSettings() {
                 const saved = localStorage.getItem('todo-app-settings');
                 return saved ? JSON.parse(saved) : {
@@ -873,49 +834,99 @@
                 localStorage.setItem('todo-app-settings', JSON.stringify(this.settings));
             }
 
-            applySettings() {
-                this.appNameInput.value = this.settings.appName;
-                this.appSubtitleInput.value = this.settings.appSubtitle;
-                this.appIconInput.value = this.settings.appIcon;
-                this.updateTitle();
-                this.updateSubtitle();
-                this.applyTheme();
-                document.querySelector(`[data-theme="${this.settings.theme}"]`).classList.add('selected');
+            generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).substr(2);
             }
 
-            updateTitle() {
-                const icon = this.settings.appIcon || '🚀';
-                const name = this.settings.appName || 'My Todo App';
-                this.appTitle.textContent = `${icon} ${name}`;
-                document.title = `${name} - Advanced Todo List`;
+            setDefaultDateTime() {
+                const today = new Date();
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                this.dueDateInput.value = tomorrow.toISOString().split('T')[0];
+                this.dueTimeInput.value = '12:00';
             }
 
-            updateSubtitle() {
-                this.appSubtitle.textContent = this.settings.appSubtitle || 'Advanced Todo List with Smart Features';
-            }
+            addTodo() {
+                const text = this.todoInput.value.trim();
+                if (!text) return;
 
-            applyTheme() {
-                const themes = {
-                    default: ['#667eea', '#764ba2'],
-                    ocean: ['#2196f3', '#21cbf3'],
-                    sunset: ['#ff9800', '#ff5722'],
-                    forest: ['#4caf50', '#8bc34a'],
-                    rose: ['#e91e63', '#f06292']
+                const newTodo = {
+                    id: this.generateId(),
+                    text: text,
+                    category: this.categorySelect.value,
+                    priority: this.prioritySelect.value,
+                    dueDate: this.dueDateInput.value,
+                    dueTime: this.dueTimeInput.value,
+                    completed: false,
+                    createdAt: new Date().toISOString()
                 };
 
-                const [color1, color2] = themes[this.settings.theme] || themes.default;
-                
-                document.documentElement.style.setProperty('--primary-color1', color1);
-                document.documentElement.style.setProperty('--primary-color2', color2);
-                
-                // Update CSS variables
-                const style = document.createElement('style');
-                style.textContent = `
-                    :root {
-                        --primary-gradient: linear-gradient(135deg, ${color1} 0%, ${color2} 100%);
+                this.todos.push(newTodo);
+                this.saveTodos();
+                this.render();
+                this.clearInputs();
+            }
+
+            clearInputs() {
+                this.todoInput.value = '';
+                this.categorySelect.selectedIndex = 0;
+                this.prioritySelect.selectedIndex = 0;
+                this.setDefaultDateTime();
+            }
+
+            deleteTodo(id) {
+                this.todos = this.todos.filter(todo => todo.id !== id);
+                this.saveTodos();
+                this.render();
+            }
+
+            toggleTodo(id) {
+                const todo = this.todos.find(t => t.id === id);
+                if (todo) {
+                    todo.completed = !todo.completed;
+                    this.saveTodos();
+                    this.render();
+                }
+            }
+
+            editTodo(id) {
+                const todo = this.todos.find(t => t.id === id);
+                if (todo) {
+                    const newText = prompt('Edit task:', todo.text);
+                    if (newText !== null && newText.trim()) {
+                        todo.text = newText.trim();
+                        this.saveTodos();
+                        this.render();
                     }
-                    body {
-                        background: linear-gradient(135deg, ${color1} 0%, ${color2} 100%);
-                    }
-                    h1, .stat-number {
-                        background: linear-gradient
+                }
+            }
+
+            formatDateTime(date, time) {
+                if (!date) return '';
+                
+                const d = new Date(date);
+                const today = new Date();
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                let dateStr = '';
+                if (d.toDateString() === today.toDateString()) {
+                    dateStr = 'Today';
+                } else if (d.toDateString() === tomorrow.toDateString()) {
+                    dateStr = 'Tomorrow';
+                } else {
+                    dateStr = d.toLocaleDateString();
+                }
+                
+                return time ? `${dateStr} at ${time}` : dateStr;
+            }
+
+            isOverdue(dueDate, dueTime) {
+                if (!dueDate) return false;
+                
+                const now = new Date();
+                const due = new Date(dueDate);
+                
+                if (dueTime) {
+                    const [hours, minutes] = dueTime.split(':');
