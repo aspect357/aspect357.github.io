@@ -279,16 +279,19 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.4);
+            overflow: auto;
         }
 
         .modal-content {
             background-color: white;
-            margin: 5% auto;
+            margin: 20px auto;
             padding: 25px;
             border-radius: 8px;
             width: 90%;
             max-width: 450px;
             position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         .close {
@@ -505,6 +508,30 @@
         let currentList = 'my-day';
         let studyTimeToday = 0;
 
+        // Load data from storage
+        function loadData() {
+            try {
+                const savedTasks = JSON.parse(localStorage.getItem('todoTasks') || '[]');
+                const savedStudyTime = parseInt(localStorage.getItem('studyTime') || '0');
+                tasks = savedTasks;
+                studyTimeToday = savedStudyTime;
+            } catch (error) {
+                console.error('Error loading data:', error);
+                tasks = [];
+                studyTimeToday = 0;
+            }
+        }
+
+        // Save data to storage
+        function saveData() {
+            try {
+                localStorage.setItem('todoTasks', JSON.stringify(tasks));
+                localStorage.setItem('studyTime', studyTimeToday.toString());
+            } catch (error) {
+                console.error('Error saving data:', error);
+            }
+        }
+
         // Generate unique ID
         function generateId() {
             return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -529,6 +556,7 @@
             };
             
             tasks.push(task);
+            saveData();
             updateUI();
         }
 
@@ -538,6 +566,7 @@
             if (task) {
                 task.completed = !task.completed;
                 task.completedDate = task.completed ? new Date().toISOString() : null;
+                saveData();
                 updateUI();
             }
         }
@@ -546,6 +575,7 @@
         function deleteTask(taskId) {
             if (confirm('Are you sure you want to delete this task?')) {
                 tasks = tasks.filter(t => t.id !== taskId);
+                saveData();
                 updateUI();
             }
         }
@@ -730,6 +760,7 @@
                 const task = tasks.find(t => t.id === editId);
                 if (task) {
                     Object.assign(task, taskData);
+                    saveData();
                     updateUI();
                 }
             } else {
@@ -772,6 +803,7 @@
         });
 
         // Initialize
+        loadData();
         updateUI();
     </script>
 </body>
