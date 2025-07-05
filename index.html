@@ -1,597 +1,86 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Check, X, Edit2, Calendar, Clock, Star, Book, Target, User, Filter, Search, MoreHorizontal, Flag, Repeat } from 'lucide-react';
+// A complete React to-do app concept with features inspired by Microsoft To Do
+// Built for deployment to GitHub Pages, includes local storage for saving data
 
-const SchoolTodoApp = () => {
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Trash2, CheckCircle, Clock, Star } from "lucide-react";
+import { motion } from "framer-motion";
+
+export default function TodoApp() {
   const [tasks, setTasks] = useState([]);
-  const [lists, setLists] = useState([
-    { id: 'inbox', name: 'Inbox', color: '#3B82F6', isDefault: true },
-    { id: 'assignments', name: 'Assignments', color: '#EF4444', isDefault: false },
-    { id: 'study', name: 'Study Sessions', color: '#10B981', isDefault: false },
-    { id: 'projects', name: 'Projects', color: '#F59E0B', isDefault: false },
-    { id: 'exams', name: 'Exams', color: '#8B5CF6', isDefault: false }
-  ]);
-  const [activeList, setActiveList] = useState('inbox');
-  const [newTask, setNewTask] = useState('');
-  const [editingTask, setEditingTask] = useState(null);
-  const [filter, setFilter] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showTaskDetails, setShowTaskDetails] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [showNewListForm, setShowNewListForm] = useState(false);
-  const [newListName, setNewListName] = useState('');
-  const [view, setView] = useState('tasks'); // 'tasks', 'calendar', 'progress'
+  const [inputValue, setInputValue] = useState("");
 
-  // Priority levels
-  const priorities = {
-    high: { label: 'High', color: '#EF4444', icon: '🔴' },
-    medium: { label: 'Medium', color: '#F59E0B', icon: '🟡' },
-    low: { label: 'Low', color: '#10B981', icon: '🟢' },
-    none: { label: 'None', color: '#6B7280', icon: '⚪' }
-  };
-
-  // Add sample tasks for demonstration
+  // Load tasks from local storage on first render
   useEffect(() => {
-    if (tasks.length === 0) {
-      const sampleTasks = [
-        {
-          id: Date.now() + 1,
-          text: 'Complete Math homework - Chapter 5',
-          completed: false,
-          listId: 'assignments',
-          priority: 'high',
-          dueDate: '2025-07-07',
-          notes: 'Focus on problems 1-15, review quadratic equations',
-          subject: 'Mathematics',
-          estimatedTime: 60,
-          createdAt: new Date().toISOString(),
-          tags: ['homework', 'math'],
-          subtasks: [
-            { id: 1, text: 'Read Chapter 5', completed: true },
-            { id: 2, text: 'Solve problems 1-10', completed: false },
-            { id: 3, text: 'Review examples', completed: false }
-          ]
-        },
-        {
-          id: Date.now() + 2,
-          text: 'Study for Biology exam',
-          completed: false,
-          listId: 'study',
-          priority: 'high',
-          dueDate: '2025-07-10',
-          notes: 'Review chapters 8-12, focus on cellular respiration',
-          subject: 'Biology',
-          estimatedTime: 120,
-          createdAt: new Date().toISOString(),
-          tags: ['exam', 'biology'],
-          subtasks: []
-        },
-        {
-          id: Date.now() + 3,
-          text: 'Research paper outline - History',
-          completed: false,
-          listId: 'projects',
-          priority: 'medium',
-          dueDate: '2025-07-15',
-          notes: 'Topic: World War II impact on society',
-          subject: 'History',
-          estimatedTime: 90,
-          createdAt: new Date().toISOString(),
-          tags: ['research', 'history'],
-          subtasks: []
-        }
-      ];
-      setTasks(sampleTasks);
-    }
+    const storedTasks = JSON.parse(localStorage.getItem("todoTasks"));
+    if (storedTasks) setTasks(storedTasks);
   }, []);
 
+  // Save tasks to local storage on any change
+  useEffect(() => {
+    localStorage.setItem("todoTasks", JSON.stringify(tasks));
+  }, [tasks]);
+
   const addTask = () => {
-    if (newTask.trim()) {
-      const task = {
-        id: Date.now(),
-        text: newTask,
-        completed: false,
-        listId: activeList,
-        priority: 'none',
-        dueDate: '',
-        notes: '',
-        subject: '',
-        estimatedTime: 0,
-        createdAt: new Date().toISOString(),
-        tags: [],
-        subtasks: []
-      };
-      setTasks([...tasks, task]);
-      setNewTask('');
-    }
+    if (inputValue.trim() === "") return;
+    const newTask = {
+      id: Date.now(),
+      text: inputValue,
+      completed: false,
+      important: false,
+      due: null,
+    };
+    setTasks([newTask, ...tasks]);
+    setInputValue("");
   };
 
-  const toggleTask = (id) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ));
+  const toggleComplete = (id) => {
+    setTasks(tasks.map(task => task.id === id ? { ...task, completed: !task.completed } : task));
   };
 
   const deleteTask = (id) => {
     setTasks(tasks.filter(task => task.id !== id));
-    if (selectedTask && selectedTask.id === id) {
-      setSelectedTask(null);
-      setShowTaskDetails(false);
-    }
   };
 
-  const updateTask = (id, updates) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, ...updates } : task
-    ));
-    if (selectedTask && selectedTask.id === id) {
-      setSelectedTask({ ...selectedTask, ...updates });
-    }
+  const toggleImportant = (id) => {
+    setTasks(tasks.map(task => task.id === id ? { ...task, important: !task.important } : task));
   };
 
-  const addList = () => {
-    if (newListName.trim()) {
-      const newList = {
-        id: Date.now().toString(),
-        name: newListName,
-        color: '#6B7280',
-        isDefault: false
-      };
-      setLists([...lists, newList]);
-      setNewListName('');
-      setShowNewListForm(false);
-    }
+  const setDueDate = (id, date) => {
+    setTasks(tasks.map(task => task.id === id ? { ...task, due: date } : task));
   };
-
-  const filteredTasks = tasks.filter(task => {
-    const matchesList = task.listId === activeList;
-    const matchesSearch = task.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    let matchesFilter = true;
-    if (filter === 'completed') matchesFilter = task.completed;
-    if (filter === 'pending') matchesFilter = !task.completed;
-    if (filter === 'today') {
-      const today = new Date().toISOString().split('T')[0];
-      matchesFilter = task.dueDate === today;
-    }
-    if (filter === 'overdue') {
-      const today = new Date().toISOString().split('T')[0];
-      matchesFilter = task.dueDate && task.dueDate < today && !task.completed;
-    }
-    if (filter === 'high-priority') matchesFilter = task.priority === 'high';
-
-    return matchesList && matchesSearch && matchesFilter;
-  });
-
-  const getTaskStats = () => {
-    const total = tasks.length;
-    const completed = tasks.filter(t => t.completed).length;
-    const pending = total - completed;
-    const overdue = tasks.filter(t => {
-      const today = new Date().toISOString().split('T')[0];
-      return t.dueDate && t.dueDate < today && !t.completed;
-    }).length;
-    
-    return { total, completed, pending, overdue };
-  };
-
-  const stats = getTaskStats();
-
-  const TaskItem = ({ task }) => (
-    <div className={`p-4 border rounded-lg mb-2 bg-white hover:shadow-md transition-shadow ${task.completed ? 'opacity-60' : ''}`}>
-      <div className="flex items-start gap-3">
-        <button
-          onClick={() => toggleTask(task.id)}
-          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-1 ${
-            task.completed ? 'bg-green-500 border-green-500' : 'border-gray-300 hover:border-blue-500'
-          }`}
-        >
-          {task.completed && <Check size={12} className="text-white" />}
-        </button>
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className={`font-medium ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-              {task.text}
-            </h3>
-            {task.priority !== 'none' && (
-              <span className="text-xs">{priorities[task.priority].icon}</span>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            {task.subject && (
-              <span className="flex items-center gap-1">
-                <Book size={12} />
-                {task.subject}
-              </span>
-            )}
-            {task.dueDate && (
-              <span className="flex items-center gap-1">
-                <Calendar size={12} />
-                {new Date(task.dueDate).toLocaleDateString()}
-              </span>
-            )}
-            {task.estimatedTime > 0 && (
-              <span className="flex items-center gap-1">
-                <Clock size={12} />
-                {task.estimatedTime}min
-              </span>
-            )}
-          </div>
-          
-          {task.tags.length > 0 && (
-            <div className="flex gap-1 mt-2">
-              {task.tags.map(tag => (
-                <span key={tag} className="px-2 py-1 bg-gray-100 rounded-full text-xs text-gray-600">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        
-        <div className="flex gap-1">
-          <button
-            onClick={() => {
-              setSelectedTask(task);
-              setShowTaskDetails(true);
-            }}
-            className="p-1 hover:bg-gray-100 rounded"
-          >
-            <Edit2 size={14} />
-          </button>
-          <button
-            onClick={() => deleteTask(task.id)}
-            className="p-1 hover:bg-gray-100 rounded text-red-500"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const TaskDetails = ({ task, onClose, onUpdate }) => {
-    const [editedTask, setEditedTask] = useState(task);
-
-    const handleSave = () => {
-      onUpdate(task.id, editedTask);
-      onClose();
-    };
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Task Details</h2>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-              <X size={20} />
-            </button>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
-              <input
-                type="text"
-                value={editedTask.text}
-                onChange={(e) => setEditedTask({ ...editedTask, text: e.target.value })}
-                className="w-full p-2 border rounded-md"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-              <input
-                type="text"
-                value={editedTask.subject}
-                onChange={(e) => setEditedTask({ ...editedTask, subject: e.target.value })}
-                className="w-full p-2 border rounded-md"
-                placeholder="e.g., Mathematics, Biology"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-              <select
-                value={editedTask.priority}
-                onChange={(e) => setEditedTask({ ...editedTask, priority: e.target.value })}
-                className="w-full p-2 border rounded-md"
-              >
-                {Object.entries(priorities).map(([key, priority]) => (
-                  <option key={key} value={key}>{priority.label}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-              <input
-                type="date"
-                value={editedTask.dueDate}
-                onChange={(e) => setEditedTask({ ...editedTask, dueDate: e.target.value })}
-                className="w-full p-2 border rounded-md"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Time (minutes)</label>
-              <input
-                type="number"
-                value={editedTask.estimatedTime}
-                onChange={(e) => setEditedTask({ ...editedTask, estimatedTime: parseInt(e.target.value) || 0 })}
-                className="w-full p-2 border rounded-md"
-                min="0"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-              <textarea
-                value={editedTask.notes}
-                onChange={(e) => setEditedTask({ ...editedTask, notes: e.target.value })}
-                className="w-full p-2 border rounded-md"
-                rows="3"
-                placeholder="Add notes, study tips, or reminders..."
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma-separated)</label>
-              <input
-                type="text"
-                value={editedTask.tags.join(', ')}
-                onChange={(e) => setEditedTask({ ...editedTask, tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag) })}
-                className="w-full p-2 border rounded-md"
-                placeholder="homework, urgent, exam"
-              />
-            </div>
-          </div>
-          
-          <div className="flex gap-2 mt-6">
-            <button
-              onClick={handleSave}
-              className="flex-1 bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
-            >
-              Save Changes
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const ProgressView = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
-          <div className="text-sm text-gray-600">Total Tasks</div>
-        </div>
-        <div className="bg-green-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-          <div className="text-sm text-gray-600">Completed</div>
-        </div>
-        <div className="bg-yellow-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-          <div className="text-sm text-gray-600">Pending</div>
-        </div>
-        <div className="bg-red-50 p-4 rounded-lg">
-          <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
-          <div className="text-sm text-gray-600">Overdue</div>
-        </div>
-      </div>
-      
-      <div className="bg-white p-6 rounded-lg border">
-        <h3 className="text-lg font-semibold mb-4">Progress by Subject</h3>
-        <div className="space-y-3">
-          {Object.entries(
-            tasks.reduce((acc, task) => {
-              if (task.subject) {
-                if (!acc[task.subject]) acc[task.subject] = { total: 0, completed: 0 };
-                acc[task.subject].total++;
-                if (task.completed) acc[task.subject].completed++;
-              }
-              return acc;
-            }, {})
-          ).map(([subject, data]) => (
-            <div key={subject} className="flex items-center gap-4">
-              <div className="w-20 text-sm font-medium">{subject}</div>
-              <div className="flex-1 bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-500 h-2 rounded-full"
-                  style={{ width: `${(data.completed / data.total) * 100}%` }}
-                />
-              </div>
-              <div className="text-sm text-gray-600">
-                {data.completed}/{data.total}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 
   return (
-    <div className="max-w-6xl mx-auto p-4 bg-gray-50 min-h-screen">
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar */}
-        <div className="lg:w-64 space-y-4">
-          <div className="bg-white p-4 rounded-lg border">
-            <h1 className="text-xl font-bold text-gray-800 mb-4">School Success</h1>
-            
-            <div className="space-y-1">
-              <button
-                onClick={() => setView('tasks')}
-                className={`w-full text-left p-2 rounded-md ${view === 'tasks' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-              >
-                📋 My Tasks
-              </button>
-              <button
-                onClick={() => setView('progress')}
-                className={`w-full text-left p-2 rounded-md ${view === 'progress' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'}`}
-              >
-                📊 Progress
-              </button>
-            </div>
-          </div>
-          
-          {view === 'tasks' && (
-            <div className="bg-white p-4 rounded-lg border">
-              <h3 className="font-semibold text-gray-700 mb-3">Lists</h3>
-              <div className="space-y-1">
-                {lists.map(list => (
-                  <button
-                    key={list.id}
-                    onClick={() => setActiveList(list.id)}
-                    className={`w-full text-left p-2 rounded-md flex items-center gap-2 ${
-                      activeList === list.id ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: list.color }} />
-                    <span className="flex-1">{list.name}</span>
-                    <span className="text-xs text-gray-500">
-                      {tasks.filter(t => t.listId === list.id).length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              
-              {!showNewListForm ? (
-                <button
-                  onClick={() => setShowNewListForm(true)}
-                  className="w-full mt-3 p-2 text-left text-blue-600 hover:bg-blue-50 rounded-md flex items-center gap-2"
-                >
-                  <Plus size={16} />
-                  Add List
-                </button>
-              ) : (
-                <div className="mt-3 space-y-2">
-                  <input
-                    type="text"
-                    value={newListName}
-                    onChange={(e) => setNewListName(e.target.value)}
-                    placeholder="List name"
-                    className="w-full p-2 border rounded-md text-sm"
-                    onKeyPress={(e) => e.key === 'Enter' && addList()}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={addList}
-                      className="flex-1 p-1 bg-blue-500 text-white rounded-md text-sm"
-                    >
-                      Add
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowNewListForm(false);
-                        setNewListName('');
-                      }}
-                      className="flex-1 p-1 bg-gray-300 text-gray-700 rounded-md text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        
-        {/* Main Content */}
-        <div className="flex-1">
-          {view === 'tasks' ? (
-            <div className="bg-white rounded-lg border p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">
-                  {lists.find(l => l.id === activeList)?.name || 'Tasks'}
-                </h2>
-                <div className="flex gap-2">
-                  <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search tasks..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 border rounded-md text-sm"
-                    />
-                  </div>
-                  <select
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    className="p-2 border rounded-md text-sm"
-                  >
-                    <option value="all">All Tasks</option>
-                    <option value="pending">Pending</option>
-                    <option value="completed">Completed</option>
-                    <option value="today">Due Today</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="high-priority">High Priority</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="flex gap-2 mb-4">
-                <input
-                  type="text"
-                  value={newTask}
-                  onChange={(e) => setNewTask(e.target.value)}
-                  placeholder="Add a new task..."
-                  className="flex-1 p-3 border rounded-md"
-                  onKeyPress={(e) => e.key === 'Enter' && addTask()}
-                />
-                <button
-                  onClick={addTask}
-                  className="bg-blue-500 text-white px-4 py-3 rounded-md hover:bg-blue-600 flex items-center gap-2"
-                >
-                  <Plus size={16} />
-                  Add Task
-                </button>
-              </div>
-              
-              <div className="space-y-2">
-                {filteredTasks.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    {searchTerm ? 'No tasks match your search.' : 'No tasks yet. Add one above!'}
-                  </div>
-                ) : (
-                  filteredTasks.map(task => (
-                    <TaskItem key={task.id} task={task} />
-                  ))
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg border p-6">
-              <h2 className="text-xl font-semibold mb-6">Progress Overview</h2>
-              <ProgressView />
-            </div>
-          )}
-        </div>
+    <div className="max-w-xl mx-auto p-4 space-y-4">
+      <h1 className="text-3xl font-bold">📚 My School Success To-Do App</h1>
+      <div className="flex gap-2">
+        <Input value={inputValue} onChange={(e) => setInputValue(e.target.value)} placeholder="New task..." />
+        <Button onClick={addTask}>
+          <Plus />
+        </Button>
       </div>
-      
-      {showTaskDetails && selectedTask && (
-        <TaskDetails
-          task={selectedTask}
-          onClose={() => {
-            setShowTaskDetails(false);
-            setSelectedTask(null);
-          }}
-          onUpdate={updateTask}
-        />
-      )}
+
+      <div className="space-y-2">
+        {tasks.map((task) => (
+          <motion.div key={task.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Card className={`flex items-center p-2 ${task.completed ? 'opacity-50' : ''}`}>
+              <CheckCircle onClick={() => toggleComplete(task.id)} className={`cursor-pointer mr-2 ${task.completed ? 'text-green-500' : ''}`} />
+              <div className="flex-1">
+                <div className={`font-medium ${task.important ? 'text-yellow-500' : ''}`}>{task.text}</div>
+                {task.due && <div className="text-sm text-gray-500">Due: {task.due}</div>}
+              </div>
+              <Clock className="cursor-pointer mr-2" onClick={() => {
+                const due = prompt('Set due date (YYYY-MM-DD):', task.due || '');
+                if (due) setDueDate(task.id, due);
+              }} />
+              <Star className={`cursor-pointer mr-2 ${task.important ? 'text-yellow-500' : ''}`} onClick={() => toggleImportant(task.id)} />
+              <Trash2 className="cursor-pointer" onClick={() => deleteTask(task.id)} />
+            </Card>
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
-};
-
-export default SchoolTodoApp;
+}
