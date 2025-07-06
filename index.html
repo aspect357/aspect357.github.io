@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Cookie Clicker Clone 🍪</title>
+  <title>Cookie Clicker 🍪</title>
   <style>
-    body { background: #222; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+    body { background: #222; color: #eee; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
     h1 { font-size: 50px; margin: 20px 0; }
     #cookie { width: 200px; cursor: pointer; transition: 0.1s; }
     #cookie:active { transform: scale(0.95); }
-    #count { font-size: 30px; margin: 20px 0; }
-    button { margin: 5px; padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; }
+    #count, #cps { font-size: 28px; margin: 15px 0; }
     .shop { margin-top: 30px; }
+    button { margin: 8px; padding: 12px 24px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; }
+    .item { margin: 15px 0; }
   </style>
 </head>
 <body>
@@ -17,31 +18,38 @@
 <h1>🍪 Cookie Clicker</h1>
 <img id="cookie" src="https://cdn-icons-png.flaticon.com/512/1046/1046784.png" alt="cookie">
 <div id="count">0 Cookies</div>
+<div id="cps">0 per second</div>
 
 <div class="shop">
   <h2>Shop</h2>
-  <button onclick="buy('cursor')">Cursor (10🍪) — +0.1/sec</button><br>
-  <button onclick="buy('grandma')">Grandma (100🍪) — +1/sec</button><br>
-  <button onclick="buy('farm')">Farm (1000🍪) — +8/sec</button>
+
+  <div class="item">
+    <button onclick="buy('cursor')">Cursor</button>
+    <span id="cursorInfo"></span>
+  </div>
+
+  <div class="item">
+    <button onclick="buy('grandma')">Grandma</button>
+    <span id="grandmaInfo"></span>
+  </div>
+
+  <div class="item">
+    <button onclick="buy('farm')">Farm</button>
+    <span id="farmInfo"></span>
+  </div>
 </div>
 
 <script>
   let cookies = parseFloat(localStorage.getItem('cookies')) || 0;
-  let items = JSON.parse(localStorage.getItem('items')) || { cursor:0, grandma:0, farm:0 };
-  let cps = 0;
+  let items = JSON.parse(localStorage.getItem('items')) || {
+    cursor: { count: 0, cps: 0.1, cost: 15 },
+    grandma: { count: 0, cps: 1, cost: 100 },
+    farm: { count: 0, cps: 8, cost: 1100 }
+  };
 
   const countDiv = document.getElementById('count');
+  const cpsDiv = document.getElementById('cps');
   const cookieImg = document.getElementById('cookie');
-
-  function update() {
-    countDiv.innerText = cookies.toFixed(1) + " Cookies";
-    localStorage.setItem('cookies', cookies);
-    localStorage.setItem('items', JSON.stringify(items));
-  }
-
-  function calcCPS() {
-    cps = items.cursor*0.1 + items.grandma*1 + items.farm*8;
-  }
 
   cookieImg.onclick = () => {
     cookies += 1;
@@ -49,31 +57,45 @@
   }
 
   function buy(item) {
-    let cost = 0;
-    if (item === 'cursor') cost = 10;
-    if (item === 'grandma') cost = 100;
-    if (item === 'farm') cost = 1000;
-
-    if (cookies >= cost) {
-      cookies -= cost;
-      items[item]++;
-      calcCPS();
+    if (cookies >= items[item].cost) {
+      cookies -= items[item].cost;
+      items[item].count++;
+      items[item].cost = Math.round(items[item].cost * 1.15);
+      save();
       update();
-      alert(item + " purchased!");
-    } else {
-      alert("Not enough cookies!");
     }
   }
 
-  function loop() {
-    cookies += cps / 10;
-    update();
-    setTimeout(loop, 100);
+  function getCPS() {
+    let total = 0;
+    for (let key in items) {
+      total += items[key].count * items[key].cps;
+    }
+    return total;
   }
 
-  calcCPS();
+  function update() {
+    countDiv.innerText = `${Math.floor(cookies)} Cookies`;
+    cpsDiv.innerText = `${getCPS().toFixed(1)} per second`;
+    document.getElementById('cursorInfo').innerText = `Owned: ${items.cursor.count} | Cost: ${items.cursor.cost} | +${items.cursor.cps}/sec`;
+    document.getElementById('grandmaInfo').innerText = `Owned: ${items.grandma.count} | Cost: ${items.grandma.cost} | +${items.grandma.cps}/sec`;
+    document.getElementById('farmInfo').innerText = `Owned: ${items.farm.count} | Cost: ${items.farm.cost} | +${items.farm.cps}/sec`;
+    save();
+  }
+
+  function save() {
+    localStorage.setItem('cookies', cookies);
+    localStorage.setItem('items', JSON.stringify(items));
+  }
+
+  function gameLoop() {
+    cookies += getCPS() / 10;
+    update();
+    setTimeout(gameLoop, 100);
+  }
+
   update();
-  loop();
+  gameLoop();
 </script>
 
 </body>
