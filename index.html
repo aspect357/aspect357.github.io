@@ -1,167 +1,138 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Mini Block World with Mobs</title>
-<style>
-  body { margin: 0; background: #111; color: #fff; font-family: sans-serif; text-align: center; }
-  canvas { background: #333; display: block; margin: 20px auto; border: 3px solid #666; }
-  button, select { margin: 5px; padding: 8px 12px; font-size: 14px; }
-</style>
+  <title>Retro RPG</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #111; color: #fff; font-family: monospace; }
+    #mobBook { position: fixed; top: 10px; right: 10px; background: #222; padding: 10px; border: 1px solid #0f0; display: none; z-index: 2; }
+    #mobBook h3 { margin: 0 0 5px; }
+    #health { position: fixed; top: 10px; left: 10px; padding: 5px; background: #300; border: 1px solid #f00; }
+    #controls { position: fixed; bottom: 10px; left: 10px; font-size: 14px; color: #aaa; }
+    button { background: #0a0; color: #fff; border: none; padding: 5px 10px; margin: 5px; cursor: pointer; }
+  </style>
 </head>
 <body>
+  <canvas id="game" width="800" height="600"></canvas>
+  <div id="health">❤️ 100</div>
+  <div id="mobBook"></div>
+  <div id="controls">
+    WASD/Arrow keys to move | <button onclick="toggleMobBook()">📖 Mob Book</button>
+  </div>
 
-<h1>🟫 Mini Block World+ ⚔️</h1>
-<p>Click to place/remove blocks. Move with WASD. Avoid mobs!</p>
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
 
-<canvas id="world" width="800" height="600"></canvas>
+    let player = { x: 400, y: 300, size: 20, color: "#0f0", health: 100 };
+    let keys = {};
+    let mobs = [];
+    let trees = [];
 
-<p>Health: <span id="health">100</span></p>
+    const mobTypes = [
+      { name: "Sheep", color: "#ccc" },
+      { name: "Pig", color: "#f88" },
+      { name: "Villager", color: "#ff0" }
+    ];
 
-<select id="blockType">
-  <option value="#8B4513">Dirt 🟫</option>
-  <option value="#228B22">Grass 🟩</option>
-  <option value="#00BFFF">Water 🟦</option>
-  <option value="#FFD700">Sand 🟨</option>
-  <option value="#A9A9A9">Stone 🪨</option>
-</select>
-<button onclick="clearWorld()">Clear World</button>
-
-<script>
-const canvas = document.getElementById("world");
-const ctx = canvas.getContext("2d");
-const blockSize = 20;
-const cols = canvas.width / blockSize;
-const rows = canvas.height / blockSize;
-
-let world = [];
-let mobs = [];
-let player = { x: 10, y: 10, health: 100 };
-
-// Load world & state
-if(localStorage.getItem("myWorld")) world = JSON.parse(localStorage.getItem("myWorld"));
-if(localStorage.getItem("myMobs")) mobs = JSON.parse(localStorage.getItem("myMobs"));
-if(localStorage.getItem("myPlayer")) player = JSON.parse(localStorage.getItem("myPlayer"));
-
-// Draw everything
-function drawWorld() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const block = world.find(b => b.x === x && b.y === y);
-      if (block) {
-        ctx.fillStyle = block.color;
-        ctx.fillRect(x * blockSize, y * blockSize, blockSize, blockSize);
-      }
-      ctx.strokeStyle = "#222";
-      ctx.strokeRect(x * blockSize, y * blockSize, blockSize, blockSize);
-    }
-  }
-
-  // Draw mobs
-  mobs.forEach(mob => {
-    ctx.fillStyle = "red";
-    ctx.fillRect(mob.x * blockSize, mob.y * blockSize, blockSize, blockSize);
-  });
-
-  // Draw player
-  ctx.fillStyle = "cyan";
-  ctx.fillRect(player.x * blockSize, player.y * blockSize, blockSize, blockSize);
-
-  document.getElementById("health").textContent = player.health;
-}
-
-// Save everything
-function saveAll() {
-  localStorage.setItem("myWorld", JSON.stringify(world));
-  localStorage.setItem("myMobs", JSON.stringify(mobs));
-  localStorage.setItem("myPlayer", JSON.stringify(player));
-}
-
-// Add/remove block on click
-canvas.addEventListener("click", e => {
-  const rect = canvas.getBoundingClientRect();
-  const x = Math.floor((e.clientX - rect.left) / blockSize);
-  const y = Math.floor((e.clientY - rect.top) / blockSize);
-  const color = document.getElementById("blockType").value;
-
-  const index = world.findIndex(b => b.x === x && b.y === y);
-  if (index >= 0) {
-    world.splice(index, 1);
-  } else {
-    world.push({ x, y, color });
-  }
-  saveAll();
-  drawWorld();
-});
-
-// Clear world and reset
-function clearWorld() {
-  if (confirm("Clear your world?")) {
-    world = [];
-    mobs = [];
-    player = { x: 10, y: 10, health: 100 };
-    saveAll();
-    drawWorld();
-  }
-}
-
-// Controls
-document.addEventListener("keydown", e => {
-  let moved = false;
-  if (e.key === "w" && player.y > 0) { player.y--; moved = true; }
-  if (e.key === "s" && player.y < rows - 1) { player.y++; moved = true; }
-  if (e.key === "a" && player.x > 0) { player.x--; moved = true; }
-  if (e.key === "d" && player.x < cols - 1) { player.x++; moved = true; }
-  if (moved) {
-    checkCollisions();
-    saveAll();
-    drawWorld();
-  }
-});
-
-// Mobs random movement
-function moveMobs() {
-  mobs.forEach(mob => {
-    const dir = Math.floor(Math.random() * 4);
-    if (dir === 0 && mob.y > 0) mob.y--;
-    if (dir === 1 && mob.y < rows - 1) mob.y++;
-    if (dir === 2 && mob.x > 0) mob.x--;
-    if (dir === 3 && mob.x < cols - 1) mob.x++;
-  });
-}
-
-// Check for collision with mobs
-function checkCollisions() {
-  mobs.forEach(mob => {
-    if (mob.x === player.x && mob.y === player.y) {
-      player.health -= 10;
-      if (player.health <= 0) {
-        alert("💀 You died!");
-        player = { x: 10, y: 10, health: 100 };
+    // Load save data
+    function loadGame() {
+      const save = JSON.parse(localStorage.getItem("rpgSave"));
+      if (save) {
+        player = save.player;
+        mobs = save.mobs;
+        trees = save.trees;
+      } else {
+        generateWorld();
       }
     }
-  });
-}
 
-// Add mobs every so often
-setInterval(() => {
-  if (mobs.length < 5) {
-    const newMob = { x: Math.floor(Math.random() * cols), y: Math.floor(Math.random() * rows) };
-    mobs.push(newMob);
-  }
-}, 3000);
+    // Save game
+    function saveGame() {
+      localStorage.setItem("rpgSave", JSON.stringify({ player, mobs, trees }));
+    }
 
-// Mob movement loop
-setInterval(() => {
-  moveMobs();
-  checkCollisions();
-  saveAll();
-  drawWorld();
-}, 500);
+    function generateWorld() {
+      for (let i = 0; i < 30; i++) {
+        trees.push({ x: Math.random() * 800, y: Math.random() * 600 });
+      }
+      for (let i = 0; i < 5; i++) {
+        const type = mobTypes[Math.floor(Math.random() * mobTypes.length)];
+        mobs.push({ x: Math.random() * 800, y: Math.random() * 600, type });
+      }
+    }
 
-drawWorld();
-</script>
+    function drawPlayer() {
+      ctx.fillStyle = player.color;
+      ctx.fillRect(player.x, player.y, player.size, player.size);
+    }
 
+    function drawTrees() {
+      ctx.fillStyle = "#080";
+      trees.forEach(t => {
+        ctx.fillRect(t.x, t.y, 20, 20);
+      });
+    }
+
+    function drawMobs() {
+      mobs.forEach(m => {
+        ctx.fillStyle = m.type.color;
+        ctx.fillRect(m.x, m.y, 20, 20);
+      });
+    }
+
+    function drawHealth() {
+      document.getElementById("health").innerHTML = `❤️ ${player.health}`;
+    }
+
+    function toggleMobBook() {
+      const book = document.getElementById("mobBook");
+      if (book.style.display === "block") {
+        book.style.display = "none";
+      } else {
+        let list = "<h3>Mob Book</h3>";
+        mobTypes.forEach(m => {
+          list += `<div style="color:${m.color}">• ${m.name}</div>`;
+        });
+        book.innerHTML = list;
+        book.style.display = "block";
+      }
+    }
+
+    function update() {
+      if (keys["ArrowUp"] || keys["w"]) player.y -= 2;
+      if (keys["ArrowDown"] || keys["s"]) player.y += 2;
+      if (keys["ArrowLeft"] || keys["a"]) player.x -= 2;
+      if (keys["ArrowRight"] || keys["d"]) player.x += 2;
+
+      // Boundaries
+      player.x = Math.max(0, Math.min(800 - player.size, player.x));
+      player.y = Math.max(0, Math.min(600 - player.size, player.y));
+
+      // Mob interaction
+      mobs.forEach(m => {
+        if (Math.abs(player.x - m.x) < 20 && Math.abs(player.y - m.y) < 20) {
+          player.health = Math.max(0, player.health - 0.05);
+        }
+      });
+
+      draw();
+      saveGame();
+    }
+
+    function draw() {
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, 800, 600);
+      drawTrees();
+      drawMobs();
+      drawPlayer();
+      drawHealth();
+    }
+
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    loadGame();
+    setInterval(update, 16);
+  </script>
 </body>
 </html>
