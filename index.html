@@ -1,20 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Mini Block World</title>
-  <style>
-    body { margin: 0; background: #111; color: #fff; font-family: sans-serif; text-align: center; }
-    canvas { background: #333; display: block; margin: 20px auto; border: 3px solid #666; }
-    button, select { margin: 5px; padding: 8px 12px; font-size: 14px; }
-  </style>
+<meta charset="UTF-8">
+<title>Mini Block World with Mobs</title>
+<style>
+  body { margin: 0; background: #111; color: #fff; font-family: sans-serif; text-align: center; }
+  canvas { background: #333; display: block; margin: 20px auto; border: 3px solid #666; }
+  button, select { margin: 5px; padding: 8px 12px; font-size: 14px; }
+</style>
 </head>
 <body>
 
-<h1>🟫 Mini Block World</h1>
-<p>Click to place/remove blocks. Pick a block type below:</p>
+<h1>🟫 Mini Block World+ ⚔️</h1>
+<p>Click to place/remove blocks. Move with WASD. Avoid mobs!</p>
 
 <canvas id="world" width="800" height="600"></canvas>
+
+<p>Health: <span id="health">100</span></p>
 
 <select id="blockType">
   <option value="#8B4513">Dirt 🟫</option>
@@ -33,13 +35,15 @@ const cols = canvas.width / blockSize;
 const rows = canvas.height / blockSize;
 
 let world = [];
+let mobs = [];
+let player = { x: 10, y: 10, health: 100 };
 
-// Load world from localStorage if exists
-if(localStorage.getItem("myWorld")) {
-  world = JSON.parse(localStorage.getItem("myWorld"));
-}
+// Load world & state
+if(localStorage.getItem("myWorld")) world = JSON.parse(localStorage.getItem("myWorld"));
+if(localStorage.getItem("myMobs")) mobs = JSON.parse(localStorage.getItem("myMobs"));
+if(localStorage.getItem("myPlayer")) player = JSON.parse(localStorage.getItem("myPlayer"));
 
-// Draw the world grid
+// Draw everything
 function drawWorld() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (let y = 0; y < rows; y++) {
@@ -53,9 +57,28 @@ function drawWorld() {
       ctx.strokeRect(x * blockSize, y * blockSize, blockSize, blockSize);
     }
   }
+
+  // Draw mobs
+  mobs.forEach(mob => {
+    ctx.fillStyle = "red";
+    ctx.fillRect(mob.x * blockSize, mob.y * blockSize, blockSize, blockSize);
+  });
+
+  // Draw player
+  ctx.fillStyle = "cyan";
+  ctx.fillRect(player.x * blockSize, player.y * blockSize, blockSize, blockSize);
+
+  document.getElementById("health").textContent = player.health;
 }
 
-// Add or remove a block when canvas is clicked
+// Save everything
+function saveAll() {
+  localStorage.setItem("myWorld", JSON.stringify(world));
+  localStorage.setItem("myMobs", JSON.stringify(mobs));
+  localStorage.setItem("myPlayer", JSON.stringify(player));
+}
+
+// Add/remove block on click
 canvas.addEventListener("click", e => {
   const rect = canvas.getBoundingClientRect();
   const x = Math.floor((e.clientX - rect.left) / blockSize);
@@ -64,28 +87,78 @@ canvas.addEventListener("click", e => {
 
   const index = world.findIndex(b => b.x === x && b.y === y);
   if (index >= 0) {
-    world.splice(index, 1); // remove block
+    world.splice(index, 1);
   } else {
-    world.push({ x, y, color }); // add block
+    world.push({ x, y, color });
   }
-
-  saveWorld();
+  saveAll();
   drawWorld();
 });
 
-// Save world to localStorage
-function saveWorld() {
-  localStorage.setItem("myWorld", JSON.stringify(world));
-}
-
-// Clear world
+// Clear world and reset
 function clearWorld() {
   if (confirm("Clear your world?")) {
     world = [];
-    saveWorld();
+    mobs = [];
+    player = { x: 10, y: 10, health: 100 };
+    saveAll();
     drawWorld();
   }
 }
+
+// Controls
+document.addEventListener("keydown", e => {
+  let moved = false;
+  if (e.key === "w" && player.y > 0) { player.y--; moved = true; }
+  if (e.key === "s" && player.y < rows - 1) { player.y++; moved = true; }
+  if (e.key === "a" && player.x > 0) { player.x--; moved = true; }
+  if (e.key === "d" && player.x < cols - 1) { player.x++; moved = true; }
+  if (moved) {
+    checkCollisions();
+    saveAll();
+    drawWorld();
+  }
+});
+
+// Mobs random movement
+function moveMobs() {
+  mobs.forEach(mob => {
+    const dir = Math.floor(Math.random() * 4);
+    if (dir === 0 && mob.y > 0) mob.y--;
+    if (dir === 1 && mob.y < rows - 1) mob.y++;
+    if (dir === 2 && mob.x > 0) mob.x--;
+    if (dir === 3 && mob.x < cols - 1) mob.x++;
+  });
+}
+
+// Check for collision with mobs
+function checkCollisions() {
+  mobs.forEach(mob => {
+    if (mob.x === player.x && mob.y === player.y) {
+      player.health -= 10;
+      if (player.health <= 0) {
+        alert("💀 You died!");
+        player = { x: 10, y: 10, health: 100 };
+      }
+    }
+  });
+}
+
+// Add mobs every so often
+setInterval(() => {
+  if (mobs.length < 5) {
+    const newMob = { x: Math.floor(Math.random() * cols), y: Math.floor(Math.random() * rows) };
+    mobs.push(newMob);
+  }
+}, 3000);
+
+// Mob movement loop
+setInterval(() => {
+  moveMobs();
+  checkCollisions();
+  saveAll();
+  drawWorld();
+}, 500);
 
 drawWorld();
 </script>
