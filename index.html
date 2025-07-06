@@ -1,58 +1,80 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>🍕 TUNG TUNG Pizza Clicker</title>
+  <title>Cookie Clicker Clone 🍪</title>
   <style>
-    body { margin:0; background:#222; color:#fff; font-family:'Comic Sans MS', cursive; text-align:center; overflow:hidden;}
-    h1 { font-size:50px; color:#ff6347; text-shadow: 2px 2px #000; }
-    #pizza { cursor:pointer; width:250px; transition:0.1s; margin-top:20px; }
-    #pizza:active { transform:scale(0.95); }
-    #counter { font-size:40px; margin:20px 0; }
-    .phrase {
-      position:absolute;
-      color:#fffb00;
-      font-size:30px;
-      pointer-events:none;
-      animation: rise 1.2s ease-out forwards;
-      text-shadow: 2px 2px #000;
-    }
-    @keyframes rise {
-      0% { opacity:1; transform:translateY(0) scale(1); }
-      100% { opacity:0; transform:translateY(-100px) scale(1.3) rotate(10deg); }
-    }
+    body { background: #222; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+    h1 { font-size: 50px; margin: 20px 0; }
+    #cookie { width: 200px; cursor: pointer; transition: 0.1s; }
+    #cookie:active { transform: scale(0.95); }
+    #count { font-size: 30px; margin: 20px 0; }
+    button { margin: 5px; padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; }
+    .shop { margin-top: 30px; }
   </style>
 </head>
 <body>
-  <h1>🍕 TUNG TUNG Clicker</h1>
-  <img id="pizza" src="https://cdn-icons-png.flaticon.com/512/3595/3595455.png" alt="Pizza">
-  <div id="counter">0 Pizzas</div>
 
-  <script>
-    let count = localStorage.getItem("pizzas") || 0;
-    const pizza = document.getElementById('pizza');
-    const counter = document.getElementById('counter');
-    const phrases = [
-      "TUNG TUNG!!", "SHAURRR!!", "TRALALALO!!", "MAMMA MIA!!",
-      "PASTA POWER!", "BELLISSIMO!", "SPAGHETTI YEAH!", "VIVA LA PIZZA!",
-      "MOZZARELLAAA!", "CIAOOO!", "CHE BELLO!"
-    ];
+<h1>🍪 Cookie Clicker</h1>
+<img id="cookie" src="https://cdn-icons-png.flaticon.com/512/1046/1046784.png" alt="cookie">
+<div id="count">0 Cookies</div>
 
-    counter.textContent = count + " Pizzas";
+<div class="shop">
+  <h2>Shop</h2>
+  <button onclick="buy('cursor')">Cursor (10🍪) — +0.1/sec</button><br>
+  <button onclick="buy('grandma')">Grandma (100🍪) — +1/sec</button><br>
+  <button onclick="buy('farm')">Farm (1000🍪) — +8/sec</button>
+</div>
 
-    pizza.onclick = () => {
-      count++;
-      localStorage.setItem("pizzas", count);
-      counter.textContent = count + " Pizzas";
+<script>
+  let cookies = parseFloat(localStorage.getItem('cookies')) || 0;
+  let items = JSON.parse(localStorage.getItem('items')) || { cursor:0, grandma:0, farm:0 };
+  let cps = 0;
 
-      const phrase = document.createElement('div');
-      phrase.className = 'phrase';
-      phrase.style.left = (Math.random()*(window.innerWidth-200))+'px';
-      phrase.style.top = (Math.random()*(window.innerHeight-200))+'px';
-      phrase.textContent = phrases[Math.floor(Math.random()*phrases.length)];
-      document.body.appendChild(phrase);
+  const countDiv = document.getElementById('count');
+  const cookieImg = document.getElementById('cookie');
 
-      setTimeout(()=>phrase.remove(), 1200);
-    };
-  </script>
+  function update() {
+    countDiv.innerText = cookies.toFixed(1) + " Cookies";
+    localStorage.setItem('cookies', cookies);
+    localStorage.setItem('items', JSON.stringify(items));
+  }
+
+  function calcCPS() {
+    cps = items.cursor*0.1 + items.grandma*1 + items.farm*8;
+  }
+
+  cookieImg.onclick = () => {
+    cookies += 1;
+    update();
+  }
+
+  function buy(item) {
+    let cost = 0;
+    if (item === 'cursor') cost = 10;
+    if (item === 'grandma') cost = 100;
+    if (item === 'farm') cost = 1000;
+
+    if (cookies >= cost) {
+      cookies -= cost;
+      items[item]++;
+      calcCPS();
+      update();
+      alert(item + " purchased!");
+    } else {
+      alert("Not enough cookies!");
+    }
+  }
+
+  function loop() {
+    cookies += cps / 10;
+    update();
+    setTimeout(loop, 100);
+  }
+
+  calcCPS();
+  update();
+  loop();
+</script>
+
 </body>
 </html>
