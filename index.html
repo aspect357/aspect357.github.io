@@ -1,107 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>RPG World</title>
+  <title>🍕 TUNG TUNG Pizza Clicker</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; }
-    canvas { display: block; margin: 0 auto; background: #111; }
+    body { margin:0; background:#222; color:#fff; font-family:'Comic Sans MS', cursive; text-align:center; overflow:hidden;}
+    h1 { font-size:50px; color:#ff6347; text-shadow: 2px 2px #000; }
+    #pizza { cursor:pointer; width:250px; transition:0.1s; margin-top:20px; }
+    #pizza:active { transform:scale(0.95); }
+    #counter { font-size:40px; margin:20px 0; }
+    .phrase {
+      position:absolute;
+      color:#fffb00;
+      font-size:30px;
+      pointer-events:none;
+      animation: rise 1.2s ease-out forwards;
+      text-shadow: 2px 2px #000;
+    }
+    @keyframes rise {
+      0% { opacity:1; transform:translateY(0) scale(1); }
+      100% { opacity:0; transform:translateY(-100px) scale(1.3) rotate(10deg); }
+    }
   </style>
 </head>
 <body>
-<canvas id="game" width="640" height="480"></canvas>
-<script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+  <h1>🍕 TUNG TUNG Clicker</h1>
+  <img id="pizza" src="https://cdn-icons-png.flaticon.com/512/3595/3595455.png" alt="Pizza">
+  <div id="counter">0 Pizzas</div>
 
-const TILE_SIZE = 32;
-const MAP_WIDTH = 20;
-const MAP_HEIGHT = 15;
+  <script>
+    let count = localStorage.getItem("pizzas") || 0;
+    const pizza = document.getElementById('pizza');
+    const counter = document.getElementById('counter');
+    const phrases = [
+      "TUNG TUNG!!", "SHAURRR!!", "TRALALALO!!", "MAMMA MIA!!",
+      "PASTA POWER!", "BELLISSIMO!", "SPAGHETTI YEAH!", "VIVA LA PIZZA!",
+      "MOZZARELLAAA!", "CIAOOO!", "CHE BELLO!"
+    ];
 
-// Player
-let player = { x: 10, y: 7, dir: 'down', health: 100 };
+    counter.textContent = count + " Pizzas";
 
-// World map (0=grass, 1=tree, 2=house)
-let map = [];
-for (let y=0; y<MAP_HEIGHT; y++) {
-  map[y] = [];
-  for (let x=0; x<MAP_WIDTH; x++) {
-    map[y][x] = (Math.random()<0.1) ? 1 : 0;
-    if (Math.random()<0.03) map[y][x]=2;
-  }
-}
+    pizza.onclick = () => {
+      count++;
+      localStorage.setItem("pizzas", count);
+      counter.textContent = count + " Pizzas";
 
-// Mobs (villagers walking randomly)
-let mobs = [];
-for (let i=0; i<5; i++) {
-  mobs.push({ x: Math.floor(Math.random()*MAP_WIDTH), y: Math.floor(Math.random()*MAP_HEIGHT), color:'#ff0' });
-}
+      const phrase = document.createElement('div');
+      phrase.className = 'phrase';
+      phrase.style.left = (Math.random()*(window.innerWidth-200))+'px';
+      phrase.style.top = (Math.random()*(window.innerHeight-200))+'px';
+      phrase.textContent = phrases[Math.floor(Math.random()*phrases.length)];
+      document.body.appendChild(phrase);
 
-// Key presses
-let keys = {};
-document.addEventListener("keydown", e => keys[e.key]=true);
-document.addEventListener("keyup", e => keys[e.key]=false);
-
-// Draw world
-function draw() {
-  ctx.fillStyle="#111";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  // Tiles
-  for (let y=0; y<MAP_HEIGHT; y++) {
-    for (let x=0; x<MAP_WIDTH; x++) {
-      if (map[y][x]===0) {
-        ctx.fillStyle="#070";
-      } else if (map[y][x]===1) {
-        ctx.fillStyle="#060";
-      } else if (map[y][x]===2) {
-        ctx.fillStyle="#333";
-      }
-      ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
-    }
-  }
-
-  // Mobs
-  mobs.forEach(m => {
-    ctx.fillStyle = m.color;
-    ctx.fillRect(m.x*TILE_SIZE+4, m.y*TILE_SIZE+4, TILE_SIZE-8, TILE_SIZE-8);
-  });
-
-  // Player
-  ctx.fillStyle="#0ff";
-  ctx.fillRect(player.x*TILE_SIZE+4, player.y*TILE_SIZE+4, TILE_SIZE-8, TILE_SIZE-8);
-
-  // HUD
-  ctx.fillStyle="#fff";
-  ctx.font="14px monospace";
-  ctx.fillText("Health: "+player.health, 10, 470);
-}
-
-// Move mobs randomly
-function moveMobs() {
-  mobs.forEach(m => {
-    if (Math.random()<0.02) {
-      let dir = Math.floor(Math.random()*4);
-      if (dir===0 && m.y>0) m.y--;
-      if (dir===1 && m.y<MAP_HEIGHT-1) m.y++;
-      if (dir===2 && m.x>0) m.x--;
-      if (dir===3 && m.x<MAP_WIDTH-1) m.x++;
-    }
-  });
-}
-
-// Game loop
-function update() {
-  if (keys['ArrowUp'] || keys['w']) { if (player.y>0) player.y--; keys={}; }
-  if (keys['ArrowDown'] || keys['s']) { if (player.y<MAP_HEIGHT-1) player.y++; keys={}; }
-  if (keys['ArrowLeft'] || keys['a']) { if (player.x>0) player.x--; keys={}; }
-  if (keys['ArrowRight'] || keys['d']) { if (player.x<MAP_WIDTH-1) player.x++; keys={}; }
-
-  moveMobs();
-  draw();
-  requestAnimationFrame(update);
-}
-
-update();
-</script>
+      setTimeout(()=>phrase.remove(), 1200);
+    };
+  </script>
 </body>
 </html>
