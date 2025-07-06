@@ -1,138 +1,107 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Retro RPG</title>
+  <title>RPG World</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #111; color: #fff; font-family: monospace; }
-    #mobBook { position: fixed; top: 10px; right: 10px; background: #222; padding: 10px; border: 1px solid #0f0; display: none; z-index: 2; }
-    #mobBook h3 { margin: 0 0 5px; }
-    #health { position: fixed; top: 10px; left: 10px; padding: 5px; background: #300; border: 1px solid #f00; }
-    #controls { position: fixed; bottom: 10px; left: 10px; font-size: 14px; color: #aaa; }
-    button { background: #0a0; color: #fff; border: none; padding: 5px 10px; margin: 5px; cursor: pointer; }
+    body { margin: 0; overflow: hidden; background: #000; }
+    canvas { display: block; margin: 0 auto; background: #111; }
   </style>
 </head>
 <body>
-  <canvas id="game" width="800" height="600"></canvas>
-  <div id="health">❤️ 100</div>
-  <div id="mobBook"></div>
-  <div id="controls">
-    WASD/Arrow keys to move | <button onclick="toggleMobBook()">📖 Mob Book</button>
-  </div>
+<canvas id="game" width="640" height="480"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-  <script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
+const TILE_SIZE = 32;
+const MAP_WIDTH = 20;
+const MAP_HEIGHT = 15;
 
-    let player = { x: 400, y: 300, size: 20, color: "#0f0", health: 100 };
-    let keys = {};
-    let mobs = [];
-    let trees = [];
+// Player
+let player = { x: 10, y: 7, dir: 'down', health: 100 };
 
-    const mobTypes = [
-      { name: "Sheep", color: "#ccc" },
-      { name: "Pig", color: "#f88" },
-      { name: "Villager", color: "#ff0" }
-    ];
+// World map (0=grass, 1=tree, 2=house)
+let map = [];
+for (let y=0; y<MAP_HEIGHT; y++) {
+  map[y] = [];
+  for (let x=0; x<MAP_WIDTH; x++) {
+    map[y][x] = (Math.random()<0.1) ? 1 : 0;
+    if (Math.random()<0.03) map[y][x]=2;
+  }
+}
 
-    // Load save data
-    function loadGame() {
-      const save = JSON.parse(localStorage.getItem("rpgSave"));
-      if (save) {
-        player = save.player;
-        mobs = save.mobs;
-        trees = save.trees;
-      } else {
-        generateWorld();
+// Mobs (villagers walking randomly)
+let mobs = [];
+for (let i=0; i<5; i++) {
+  mobs.push({ x: Math.floor(Math.random()*MAP_WIDTH), y: Math.floor(Math.random()*MAP_HEIGHT), color:'#ff0' });
+}
+
+// Key presses
+let keys = {};
+document.addEventListener("keydown", e => keys[e.key]=true);
+document.addEventListener("keyup", e => keys[e.key]=false);
+
+// Draw world
+function draw() {
+  ctx.fillStyle="#111";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Tiles
+  for (let y=0; y<MAP_HEIGHT; y++) {
+    for (let x=0; x<MAP_WIDTH; x++) {
+      if (map[y][x]===0) {
+        ctx.fillStyle="#070";
+      } else if (map[y][x]===1) {
+        ctx.fillStyle="#060";
+      } else if (map[y][x]===2) {
+        ctx.fillStyle="#333";
       }
+      ctx.fillRect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
+  }
 
-    // Save game
-    function saveGame() {
-      localStorage.setItem("rpgSave", JSON.stringify({ player, mobs, trees }));
+  // Mobs
+  mobs.forEach(m => {
+    ctx.fillStyle = m.color;
+    ctx.fillRect(m.x*TILE_SIZE+4, m.y*TILE_SIZE+4, TILE_SIZE-8, TILE_SIZE-8);
+  });
+
+  // Player
+  ctx.fillStyle="#0ff";
+  ctx.fillRect(player.x*TILE_SIZE+4, player.y*TILE_SIZE+4, TILE_SIZE-8, TILE_SIZE-8);
+
+  // HUD
+  ctx.fillStyle="#fff";
+  ctx.font="14px monospace";
+  ctx.fillText("Health: "+player.health, 10, 470);
+}
+
+// Move mobs randomly
+function moveMobs() {
+  mobs.forEach(m => {
+    if (Math.random()<0.02) {
+      let dir = Math.floor(Math.random()*4);
+      if (dir===0 && m.y>0) m.y--;
+      if (dir===1 && m.y<MAP_HEIGHT-1) m.y++;
+      if (dir===2 && m.x>0) m.x--;
+      if (dir===3 && m.x<MAP_WIDTH-1) m.x++;
     }
+  });
+}
 
-    function generateWorld() {
-      for (let i = 0; i < 30; i++) {
-        trees.push({ x: Math.random() * 800, y: Math.random() * 600 });
-      }
-      for (let i = 0; i < 5; i++) {
-        const type = mobTypes[Math.floor(Math.random() * mobTypes.length)];
-        mobs.push({ x: Math.random() * 800, y: Math.random() * 600, type });
-      }
-    }
+// Game loop
+function update() {
+  if (keys['ArrowUp'] || keys['w']) { if (player.y>0) player.y--; keys={}; }
+  if (keys['ArrowDown'] || keys['s']) { if (player.y<MAP_HEIGHT-1) player.y++; keys={}; }
+  if (keys['ArrowLeft'] || keys['a']) { if (player.x>0) player.x--; keys={}; }
+  if (keys['ArrowRight'] || keys['d']) { if (player.x<MAP_WIDTH-1) player.x++; keys={}; }
 
-    function drawPlayer() {
-      ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.size, player.size);
-    }
+  moveMobs();
+  draw();
+  requestAnimationFrame(update);
+}
 
-    function drawTrees() {
-      ctx.fillStyle = "#080";
-      trees.forEach(t => {
-        ctx.fillRect(t.x, t.y, 20, 20);
-      });
-    }
-
-    function drawMobs() {
-      mobs.forEach(m => {
-        ctx.fillStyle = m.type.color;
-        ctx.fillRect(m.x, m.y, 20, 20);
-      });
-    }
-
-    function drawHealth() {
-      document.getElementById("health").innerHTML = `❤️ ${player.health}`;
-    }
-
-    function toggleMobBook() {
-      const book = document.getElementById("mobBook");
-      if (book.style.display === "block") {
-        book.style.display = "none";
-      } else {
-        let list = "<h3>Mob Book</h3>";
-        mobTypes.forEach(m => {
-          list += `<div style="color:${m.color}">• ${m.name}</div>`;
-        });
-        book.innerHTML = list;
-        book.style.display = "block";
-      }
-    }
-
-    function update() {
-      if (keys["ArrowUp"] || keys["w"]) player.y -= 2;
-      if (keys["ArrowDown"] || keys["s"]) player.y += 2;
-      if (keys["ArrowLeft"] || keys["a"]) player.x -= 2;
-      if (keys["ArrowRight"] || keys["d"]) player.x += 2;
-
-      // Boundaries
-      player.x = Math.max(0, Math.min(800 - player.size, player.x));
-      player.y = Math.max(0, Math.min(600 - player.size, player.y));
-
-      // Mob interaction
-      mobs.forEach(m => {
-        if (Math.abs(player.x - m.x) < 20 && Math.abs(player.y - m.y) < 20) {
-          player.health = Math.max(0, player.health - 0.05);
-        }
-      });
-
-      draw();
-      saveGame();
-    }
-
-    function draw() {
-      ctx.fillStyle = "#111";
-      ctx.fillRect(0, 0, 800, 600);
-      drawTrees();
-      drawMobs();
-      drawPlayer();
-      drawHealth();
-    }
-
-    document.addEventListener("keydown", e => keys[e.key] = true);
-    document.addEventListener("keyup", e => keys[e.key] = false);
-
-    loadGame();
-    setInterval(update, 16);
-  </script>
+update();
+</script>
 </body>
 </html>
