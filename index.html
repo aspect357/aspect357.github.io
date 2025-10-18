@@ -331,23 +331,23 @@
             <div class="subtitle">Assessment Platform</div>
         </div>
 
-        <form onsubmit="login(event)">
+        <div>
             <div class="form-group">
                 <label class="form-label">Username</label>
-                <input type="text" class="form-input" id="username" placeholder="Enter your username" required>
+                <input type="text" class="form-input" id="username" placeholder="Enter your username">
             </div>
 
             <div class="form-group">
                 <label class="form-label">Password</label>
-                <input type="password" class="form-input" id="password" placeholder="Enter your password" required>
+                <input type="password" class="form-input" id="password" placeholder="Enter your password">
             </div>
 
-            <button type="submit" class="btn-login">Sign In</button>
+            <button type="button" class="btn-login" onclick="attemptLogin()">Sign In</button>
             
             <div class="error-message" id="errorMsg">
                 Invalid username or password. Please try again.
             </div>
-        </form>
+        </div>
 
         <div class="help-text">
             Need help? Contact your teacher or administrator.
@@ -459,15 +459,11 @@
         let timeLeft = 2700; // 45 minutes
 
         // Login function
-        function login(event) {
-            event.preventDefault();
+        function attemptLogin() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
             
-            console.log('Attempting login with:', username, password); // Debug
-            
             if (username === validUser && password === validPass) {
-                console.log('Login successful!'); // Debug
                 document.getElementById('loginScreen').style.display = 'none';
                 document.getElementById('testScreen').classList.add('active');
                 document.getElementById('studentName').textContent = username;
@@ -475,7 +471,6 @@
                 loadQuestion();
                 startTimer();
             } else {
-                console.log('Login failed'); // Debug
                 document.getElementById('errorMsg').classList.add('show');
                 document.getElementById('password').value = '';
                 setTimeout(() => {
@@ -484,8 +479,15 @@
             }
         }
         
-        // Make login function globally accessible
-        window.login = login;
+        // Allow Enter key to submit
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('username').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') attemptLogin();
+            });
+            document.getElementById('password').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') attemptLogin();
+            });
+        });
 
         function enterFullscreen() {
             const elem = document.documentElement;
