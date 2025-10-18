@@ -1,265 +1,610 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, Play, Eye, Calendar, Copy, Video } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAP Growth - Student Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-export default function VideoSharingPlatform() {
-  const [videos, setVideos] = useState([
-    {
-      id: 1,
-      title: "Welcome to the Platform!",
-      url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-      type: "video",
-      views: 0,
-      date: new Date().toISOString(),
-      thumbnail: null
-    }
-  ]);
-  const [newTitle, setNewTitle] = useState('');
-  const [newUrl, setNewUrl] = useState('');
-  const [uploadType, setUploadType] = useState('video');
-  const [showUpload, setShowUpload] = useState(false);
-  const [playingId, setPlayingId] = useState(null);
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-  const addVideo = () => {
-    if (!newTitle.trim() || !newUrl.trim()) {
-      alert('Please enter both title and URL');
-      return;
-    }
+        .login-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 400px;
+            padding: 40px;
+        }
 
-    const newVideo = {
-      id: Date.now(),
-      title: newTitle,
-      url: newUrl,
-      type: uploadType,
-      views: 0,
-      date: new Date().toISOString(),
-      thumbnail: null
-    };
+        .logo-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
 
-    setVideos([newVideo, ...videos]);
-    setNewTitle('');
-    setNewUrl('');
-    setShowUpload(false);
-  };
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 5px;
+        }
 
-  const handlePaste = async (e) => {
-    const items = e.clipboardData.items;
-    
-    for (let item of items) {
-      if (item.type.indexOf('image') !== -1) {
-        const blob = item.getAsFile();
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const newVideo = {
-            id: Date.now(),
-            title: `Pasted Image ${new Date().toLocaleString()}`,
-            url: event.target.result,
-            type: 'image',
-            views: 0,
-            date: new Date().toISOString(),
-            thumbnail: null
-          };
-          setVideos([newVideo, ...videos]);
-        };
-        reader.readAsDataURL(blob);
-        return;
-      }
-    }
-    
-    const text = e.clipboardData.getData('text');
-    if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
-      setNewUrl(text);
-      const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(text);
-      setUploadType(isImage ? 'image' : 'video');
-      setShowUpload(true);
-    }
-  };
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
 
-  const incrementViews = (id) => {
-    setVideos(videos.map(v => 
-      v.id === id ? { ...v, views: v.views + 1 } : v
-    ));
-    setPlayingId(id);
-  };
+        .form-group {
+            margin-bottom: 20px;
+        }
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now - date);
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
-    return `${Math.floor(diffDays / 365)} years ago`;
-  };
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
 
-  useEffect(() => {
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
-  }, [videos]);
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 15px;
+            transition: border 0.3s;
+        }
 
-  return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Video className="w-8 h-8 text-red-500" />
-            <h1 className="text-2xl font-bold">VideoShare</h1>
-          </div>
-          <button
-            onClick={() => setShowUpload(!showUpload)}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition"
-          >
-            <Upload className="w-5 h-5" />
-            Upload
-          </button>
+        .form-input:focus {
+            outline: none;
+            border-color: #2c5aa0;
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: #2c5aa0;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn-login:hover {
+            background: #1e4080;
+        }
+
+        .error-message {
+            color: #d32f2f;
+            font-size: 13px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .help-text {
+            text-align: center;
+            margin-top: 20px;
+            color: #999;
+            font-size: 12px;
+        }
+
+        /* Test Screen Styles */
+        .test-screen {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: white;
+            z-index: 9999;
+        }
+
+        .test-screen.active {
+            display: block;
+        }
+
+        .header {
+            background: #2c5aa0;
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .timer {
+            font-size: 18px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 5px;
+        }
+
+        .main-content {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .question-box {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .question-number {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .question-text {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            padding: 15px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .option:hover {
+            background: #e8f0fe;
+            border-color: #2c5aa0;
+        }
+
+        .option.selected {
+            background: #e8f0fe;
+            border-color: #2c5aa0;
+            font-weight: 500;
+        }
+
+        .option-letter {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #2c5aa0;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 15px;
+            font-weight: bold;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-next {
+            background: #2c5aa0;
+            color: white;
+        }
+
+        .btn-next:hover {
+            background: #1e4080;
+        }
+
+        .progress-bar {
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .progress-fill {
+            background: #2c5aa0;
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .admin-trigger {
+            position: fixed;
+            bottom: 5px;
+            right: 5px;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .admin-panel {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 10000;
+        }
+
+        .admin-panel.active {
+            display: block;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        .admin-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .admin-textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 100px;
+            font-family: monospace;
+        }
+
+        .student-info {
+            background: #f0f4ff;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login-container" id="loginScreen">
+        <div class="logo-section">
+            <div class="logo">MAP Growth</div>
+            <div class="subtitle">Assessment Platform</div>
         </div>
-      </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Upload Section */}
-        {showUpload && (
-          <div className="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
-            <h2 className="text-xl font-bold mb-4">Upload New Content</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Type</label>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setUploadType('video')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                      uploadType === 'video' ? 'bg-red-600' : 'bg-gray-700'
-                    }`}
-                  >
-                    <Video className="w-4 h-4" />
-                    Video
-                  </button>
-                  <button
-                    onClick={() => setUploadType('image')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                      uploadType === 'image' ? 'bg-red-600' : 'bg-gray-700'
-                    }`}
-                  >
-                    <div className="w-4 h-4">📷</div>
-                    Image
-                  </button>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Title</label>
-                <input
-                  type="text"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="Enter title..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">URL (or paste anywhere on the page)</label>
-                <input
-                  type="text"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="Paste video/image URL..."
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={addVideo}
-                  className="bg-red-600 hover:bg-red-700 px-6 py-2 rounded-lg transition"
-                >
-                  Add Content
-                </button>
-                <button
-                  onClick={() => setShowUpload(false)}
-                  className="bg-gray-700 hover:bg-gray-600 px-6 py-2 rounded-lg transition"
-                >
-                  Cancel
-                </button>
-              </div>
+        <form onsubmit="login(event)">
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-input" id="username" placeholder="Enter your username" required>
             </div>
-          </div>
-        )}
 
-        {/* Paste Hint */}
-        <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6 flex items-center gap-3">
-          <Copy className="w-5 h-5 text-blue-400" />
-          <p className="text-sm text-blue-200">
-            Tip: You can paste images or video URLs anywhere on this page to instantly add them!
-          </p>
-        </div>
-
-        {/* Video Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {videos.map((video) => (
-            <div key={video.id} className="bg-gray-800 rounded-lg overflow-hidden border border-gray-700 hover:border-gray-600 transition">
-              {/* Thumbnail/Video */}
-              <div className="relative aspect-video bg-gray-900">
-                {video.type === 'video' ? (
-                  playingId === video.id ? (
-                    <video
-                      controls
-                      autoPlay
-                      className="w-full h-full object-cover"
-                      src={video.url}
-                    />
-                  ) : (
-                    <div
-                      onClick={() => incrementViews(video.id)}
-                      className="w-full h-full flex items-center justify-center cursor-pointer group"
-                    >
-                      <video
-                        className="w-full h-full object-cover"
-                        src={video.url}
-                      />
-                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition flex items-center justify-center">
-                        <Play className="w-16 h-16 text-white" />
-                      </div>
-                    </div>
-                  )
-                ) : (
-                  <img
-                    src={video.url}
-                    alt={video.title}
-                    className="w-full h-full object-cover cursor-pointer"
-                    onClick={() => incrementViews(video.id)}
-                  />
-                )}
-              </div>
-
-              {/* Info */}
-              <div className="p-4">
-                <h3 className="font-semibold text-lg mb-2 line-clamp-2">{video.title}</h3>
-                <div className="flex items-center gap-4 text-sm text-gray-400">
-                  <div className="flex items-center gap-1">
-                    <Eye className="w-4 h-4" />
-                    <span>{video.views} views</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>{formatDate(video.date)}</span>
-                  </div>
-                </div>
-              </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" id="password" placeholder="Enter your password" required>
             </div>
-          ))}
-        </div>
 
-        {videos.length === 0 && (
-          <div className="text-center py-20 text-gray-400">
-            <Video className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p className="text-xl">No videos yet. Upload your first one!</p>
-          </div>
-        )}
-      </div>
+            <button type="submit" class="btn-login">Sign In</button>
+            
+            <div class="error-message" id="errorMsg">
+                Invalid username or password. Please try again.
+            </div>
+        </form>
+
+        <div class="help-text">
+            Need help? Contact your teacher or administrator.
+        </div>
     </div>
-  );
-}
+
+    <!-- Test Screen -->
+    <div class="test-screen" id="testScreen">
+        <div class="header">
+            <div class="header-logo">MAP Growth</div>
+            <div class="timer">Time Remaining: <span id="timer">45:00</span></div>
+        </div>
+
+        <div class="main-content">
+            <div class="student-info">
+                Student: <strong id="studentName"></strong> | Test Session: Reading Comprehension
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress"></div>
+            </div>
+
+            <div class="question-box">
+                <div class="question-number">Question <span id="q-num">1</span> of <span id="total-q">10</span></div>
+                <div class="question-text" id="question"></div>
+                <div class="options" id="options"></div>
+            </div>
+
+            <div class="nav-buttons">
+                <button class="btn btn-next" onclick="nextQuestion()">Next Question →</button>
+            </div>
+        </div>
+
+        <!-- Secret admin trigger (triple-click bottom right corner) -->
+        <div class="admin-trigger" onclick="clickCount++" ondblclick="if(clickCount >= 3) openAdmin()"></div>
+    </div>
+
+    <div class="overlay" id="overlay" onclick="closeAdmin()"></div>
+    <div class="admin-panel" id="adminPanel">
+        <h2>Admin Panel - Edit Questions</h2>
+        <p style="color: #666; margin: 10px 0;">Edit the questions JSON below:</p>
+        <textarea class="admin-textarea" id="questionsInput"></textarea>
+        <button class="btn btn-next" onclick="saveQuestions()" style="margin-top: 10px;">Save Questions</button>
+        <button class="btn" onclick="closeAdmin()" style="margin-top: 10px; background: #666; color: white;">Close</button>
+    </div>
+
+    <script>
+        // Login credentials
+        const validUser = 'fady123';
+        const validPass = 'acla';
+
+        // Default questions (customize these!)
+        let questions = [
+            {
+                question: "What is 7 + 8?",
+                options: ["13", "14", "15", "16"],
+                correct: 2
+            },
+            {
+                question: "Which word is spelled correctly?",
+                options: ["Recieve", "Receive", "Recive", "Receeve"],
+                correct: 1
+            },
+            {
+                question: "What is the capital of France?",
+                options: ["London", "Berlin", "Paris", "Madrid"],
+                correct: 2
+            },
+            {
+                question: "How many sides does a hexagon have?",
+                options: ["5", "6", "7", "8"],
+                correct: 1
+            },
+            {
+                question: "What is 12 × 3?",
+                options: ["34", "35", "36", "37"],
+                correct: 2
+            },
+            {
+                question: "Which of these is a mammal?",
+                options: ["Snake", "Dolphin", "Eagle", "Shark"],
+                correct: 1
+            },
+            {
+                question: "What is the past tense of 'run'?",
+                options: ["Runned", "Ran", "Runed", "Running"],
+                correct: 1
+            },
+            {
+                question: "What is 100 ÷ 4?",
+                options: ["20", "25", "30", "35"],
+                correct: 1
+            },
+            {
+                question: "Which planet is known as the Red Planet?",
+                options: ["Venus", "Mars", "Jupiter", "Saturn"],
+                correct: 1
+            },
+            {
+                question: "What is the next number in the sequence: 2, 4, 6, 8, __?",
+                options: ["9", "10", "11", "12"],
+                correct: 1
+            }
+        ];
+
+        let currentQuestion = 0;
+        let selectedAnswer = -1;
+        let clickCount = 0;
+        let timeLeft = 2700; // 45 minutes
+
+        // Login function
+        function login(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            console.log('Attempting login with:', username, password); // Debug
+            
+            if (username === validUser && password === validPass) {
+                console.log('Login successful!'); // Debug
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('testScreen').classList.add('active');
+                document.getElementById('studentName').textContent = username;
+                enterFullscreen();
+                loadQuestion();
+                startTimer();
+            } else {
+                console.log('Login failed'); // Debug
+                document.getElementById('errorMsg').classList.add('show');
+                document.getElementById('password').value = '';
+                setTimeout(() => {
+                    document.getElementById('errorMsg').classList.remove('show');
+                }, 3000);
+            }
+        }
+        
+        // Make login function globally accessible
+        window.login = login;
+
+        function enterFullscreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            }
+        }
+
+        // Prevent exit
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && document.getElementById('testScreen').classList.contains('active')) {
+                enterFullscreen();
+            }
+        });
+
+        function loadQuestion() {
+            const q = questions[currentQuestion];
+            document.getElementById('q-num').textContent = currentQuestion + 1;
+            document.getElementById('total-q').textContent = questions.length;
+            document.getElementById('question').textContent = q.question;
+            
+            const optionsDiv = document.getElementById('options');
+            optionsDiv.innerHTML = '';
+            
+            q.options.forEach((opt, idx) => {
+                const optionDiv = document.createElement('div');
+                optionDiv.className = 'option';
+                optionDiv.onclick = () => selectAnswer(idx);
+                optionDiv.innerHTML = `<span class="option-letter">${String.fromCharCode(65 + idx)}</span>${opt}`;
+                optionsDiv.appendChild(optionDiv);
+            });
+
+            updateProgress();
+            selectedAnswer = -1;
+        }
+
+        function selectAnswer(idx) {
+            selectedAnswer = idx;
+            document.querySelectorAll('.option').forEach((opt, i) => {
+                opt.classList.toggle('selected', i === idx);
+            });
+        }
+
+        function nextQuestion() {
+            if (selectedAnswer === -1) {
+                alert('Please select an answer before continuing.');
+                return;
+            }
+
+            currentQuestion++;
+            if (currentQuestion >= questions.length) {
+                showResults();
+            } else {
+                loadQuestion();
+            }
+        }
+
+        function updateProgress() {
+            const progress = ((currentQuestion + 1) / questions.length) * 100;
+            document.getElementById('progress').style.width = progress + '%';
+        }
+
+        function startTimer() {
+            setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                document.getElementById('timer').textContent = 
+                    `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    showResults();
+                }
+            }, 1000);
+        }
+
+        function showResults() {
+            document.querySelector('.main-content').innerHTML = `
+                <div class="question-box" style="text-align: center;">
+                    <h2 style="color: #2c5aa0; margin-bottom: 20px;">Test Complete!</h2>
+                    <p style="font-size: 18px; color: #666;">Your results are being processed...</p>
+                    <p style="font-size: 16px; color: #999; margin-top: 20px;">Thank you for completing the assessment.</p>
+                    <p style="font-size: 14px; color: #999; margin-top: 10px;">You may now close this window.</p>
+                </div>
+            `;
+        }
+
+        // Admin panel functions (SECRET - triple click bottom right)
+        function openAdmin() {
+            clickCount = 0;
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById('adminPanel').classList.add('active');
+            document.getElementById('questionsInput').value = JSON.stringify(questions, null, 2);
+        }
+
+        function closeAdmin() {
+            document.getElementById('overlay').classList.remove('active');
+            document.getElementById('adminPanel').classList.remove('active');
+        }
+
+        function saveQuestions() {
+            try {
+                const newQuestions = JSON.parse(document.getElementById('questionsInput').value);
+                questions = newQuestions;
+                currentQuestion = 0;
+                loadQuestion();
+                closeAdmin();
+                alert('Questions updated successfully!');
+            } catch (e) {
+                alert('Invalid JSON format! Please check your syntax.');
+            }
+        }
+
+        // Reset click counter after 2 seconds
+        setInterval(() => { clickCount = 0; }, 2000);
+    </script>
+</body>
+</html>
