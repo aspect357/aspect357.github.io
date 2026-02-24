@@ -1,1764 +1,663 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fady - Student Login</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .login-container {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            width: 400px;
-            padding: 40px;
-        }
-
-        .logo-section {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .logo {
-            font-size: 32px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 5px;
-        }
-
-        .subtitle {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 15px;
-            transition: border 0.3s;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #2c5aa0;
-        }
-
-        .btn-login {
-            width: 100%;
-            padding: 14px;
-            background: #2c5aa0;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .btn-login:hover {
-            background: #1e4080;
-        }
-
-        .error-message {
-            color: #d32f2f;
-            font-size: 13px;
-            margin-top: 10px;
-            display: none;
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
-        .help-text {
-            text-align: center;
-            margin-top: 20px;
-            color: #999;
-            font-size: 12px;
-        }
-
-        /* Test Selection Screen */
-        .test-selection {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: #f5f5f5;
-            overflow-y: auto;
-        }
-
-        .test-selection.active {
-            display: block;
-        }
-
-        .selection-header {
-            background: #2c5aa0;
-            color: white;
-            padding: 20px 30px;
-        }
-
-        .selection-title {
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .selection-subtitle {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-
-        .selection-content {
-            max-width: 1000px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
-
-        .test-category {
-            background: white;
-            border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .category-title {
-            font-size: 20px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .test-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .test-card {
-            background: #f8f9fa;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 20px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .test-card:hover {
-            border-color: #2c5aa0;
-            background: #e8f0fe;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.2);
-        }
-
-        .test-name {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
-        }
-
-        .test-desc {
-            font-size: 13px;
-            color: #666;
-        }
-
-        /* Test Screen Styles */
-        .test-screen {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: white;
-            z-index: 9999;
-        }
-
-        .test-screen.active {
-            display: block;
-        }
-
-        .header {
-            background: #2c5aa0;
-            color: white;
-            padding: 15px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header-logo {
-            font-size: 24px;
-            font-weight: bold;
-        }
-
-        .timer {
-            font-size: 18px;
-            background: rgba(255,255,255,0.2);
-            padding: 8px 15px;
-            border-radius: 5px;
-        }
-
-        .main-content {
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
-
-        .question-box {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        .question-number {
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 15px;
-        }
-
-        .question-text {
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 25px;
-            line-height: 1.6;
-        }
-
-        .options {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .option {
-            background: #f8f9fa;
-            border: 2px solid #e0e0e0;
-            padding: 15px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-        }
-
-        .option:hover {
-            background: #e8f0fe;
-            border-color: #2c5aa0;
-        }
-
-        .option.selected {
-            background: #e8f0fe;
-            border-color: #2c5aa0;
-            font-weight: 500;
-        }
-
-        .option-letter {
-            display: inline-block;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            background: #2c5aa0;
-            color: white;
-            text-align: center;
-            line-height: 30px;
-            margin-right: 15px;
-            font-weight: bold;
-        }
-
-        .nav-buttons {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-
-        .btn {
-            padding: 12px 30px;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-next {
-            background: #2c5aa0;
-            color: white;
-        }
-
-        .btn-next:hover {
-            background: #1e4080;
-        }
-
-        .progress-bar {
-            background: #e0e0e0;
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 30px;
-        }
-
-        .progress-fill {
-            background: #2c5aa0;
-            height: 100%;
-            transition: width 0.3s;
-        }
-
-        .admin-trigger {
-            position: fixed;
-            bottom: 0;
-            right: 0;
-            width: 50px;
-            height: 50px;
-            opacity: 0;
-            cursor: pointer;
-            z-index: 10000;
-        }
-
-        .admin-panel {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            max-width: 800px;
-            max-height: 80vh;
-            overflow-y: auto;
-            z-index: 10001;
-        }
-
-        .admin-panel.active {
-            display: block;
-        }
-
-        .overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 10000;
-        }
-
-        .overlay.active {
-            display: block;
-        }
-
-        .admin-input {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .admin-textarea {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            min-height: 100px;
-            font-family: monospace;
-            font-size: 12px;
-        }
-
-        .student-info {
-            background: #f0f4ff;
-            padding: 10px 15px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            font-size: 14px;
-            color: #333;
-        }
-
-        .results-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .results-table th,
-        .results-table td {
-            padding: 10px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-
-        .results-table th {
-            background: #2c5aa0;
-            color: white;
-        }
-
-        .admin-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .admin-tab {
-            padding: 10px 20px;
-            background: #e0e0e0;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .admin-tab.active {
-            background: #2c5aa0;
-            color: white;
-        }
-
-        .admin-content {
-            display: none;
-        }
-
-        .admin-content.active {
-            display: block;
-        }
-
-        .study-section {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 4px solid #2c5aa0;
-        }
-
-        .study-title {
-            font-size: 20px;
-            font-weight: bold;
-            color: #2c5aa0;
-            margin-bottom: 15px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .study-content-inner {
-            display: none;
-            margin-top: 15px;
-            line-height: 1.8;
-        }
-
-        .study-content-inner.active {
-            display: block;
-        }
-
-        .study-topic {
-            margin-bottom: 15px;
-        }
-
-        .study-topic h4 {
-            color: #333;
-            margin-bottom: 8px;
-            font-size: 16px;
-        }
-
-        .study-topic p, .study-topic ul {
-            color: #555;
-            font-size: 14px;
-        }
-
-        .study-topic ul {
-            margin-left: 20px;
-            margin-top: 5px;
-        }
-
-        .study-topic li {
-            margin-bottom: 5px;
-        }
-
-        .formula {
-            background: #fff;
-            padding: 10px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-        }
-
-        .study-nav {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        .study-btn {
-            padding: 8px 16px;
-            background: #e0e0e0;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .study-btn.active {
-            background: #2c5aa0;
-            color: white;
-        }
-
-        .help-icon {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            width: 24px;
-            height: 24px;
-            background: #2c5aa0;
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .help-tooltip {
-            display: none;
-            position: absolute;
-            top: 45px;
-            right: 15px;
-            background: white;
-            border: 2px solid #2c5aa0;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 1000;
-            min-width: 200px;
-        }
-
-        .help-tooltip.show {
-            display: block;
-        }
-
-        .help-tooltip h4 {
-            margin: 0 0 10px 0;
-            color: #2c5aa0;
-            font-size: 14px;
-        }
-
-        .help-tooltip p {
-            margin: 5px 0;
-            font-size: 13px;
-            color: #333;
-        }
-
-        .exit-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            background: #d32f2f;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            z-index: 10000;
-        }
-
-        .exit-btn:hover {
-            background: #b71c1c;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tasks</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red: #e8000d;
+      --red-glow: rgba(232,0,13,0.15);
+      --bg: #0e0e0e;
+      --surface: #161616;
+      --surface2: #1e1e1e;
+      --border: #222;
+      --border2: #2e2e2e;
+      --text: #e8e8e8;
+      --muted: #484848;
+      --muted2: #2a2a2a;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+
+    /* ── MAIN VIEW ── */
+    #app { max-width: 480px; margin: 0 auto; padding: 32px 16px 100px; min-height: 100vh; display: flex; flex-direction: column; }
+
+    .input-row { display: flex; gap: 8px; margin-bottom: 16px; }
+
+    .task-input {
+      flex: 1; background: var(--surface); border: 1.5px solid var(--border);
+      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px;
+      padding: 10px 14px; border-radius: 6px; outline: none; transition: border-color 0.15s;
+    }
+    .task-input:focus { border-color: var(--border2); }
+    .task-input::placeholder { color: var(--muted); }
+
+    .add-btn {
+      width: 40px; height: 40px; background: var(--text); color: var(--bg);
+      border: none; border-radius: 6px; font-size: 20px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s; flex-shrink: 0;
+    }
+    .add-btn:hover { background: #bbb; }
+
+    .urgent-row { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+
+    .toggle-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+    .toggle {
+      width: 36px; height: 20px; background: var(--border2); border-radius: 10px;
+      position: relative; cursor: pointer; transition: background 0.2s; border: none; flex-shrink: 0;
+    }
+    .toggle::after {
+      content: ''; width: 14px; height: 14px; background: #fff; border-radius: 50%;
+      position: absolute; top: 3px; left: 3px; transition: left 0.2s;
+    }
+    .toggle.on { background: var(--red); }
+    .toggle.on::after { left: 19px; }
+
+    .filters { display: flex; gap: 6px; margin-bottom: 20px; }
+
+    .pill {
+      font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--muted); background: transparent;
+      border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .pill:hover { color: var(--text); border-color: var(--border2); }
+    .pill.active { color: var(--text); border-color: var(--muted); background: var(--surface); }
+
+    .task-list { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+
+    .task-item {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      animation: slideIn 0.18s ease; position: relative;
+    }
+    @keyframes slideIn { from { opacity:0; transform: translateY(-4px); } to { opacity:1; transform: none; } }
+    .task-item:hover { border-color: var(--border2); }
+    .task-item.urgent { border-color: var(--red); background: rgba(232,0,13,0.03); }
+    .task-item.urgent::before {
+      content:''; position: absolute; left:0; top:0; bottom:0;
+      width: 3px; background: var(--red); border-radius: 6px 0 0 6px;
+    }
+    .task-item.done { opacity: 0.35; }
+    .task-item.done .task-label { text-decoration: line-through; }
+
+    .check {
+      width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border2);
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; background: transparent; cursor: pointer;
+    }
+    .task-item.urgent:not(.done) .check { border-color: var(--red); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(232,0,13,0.5); }
+      50%      { box-shadow: 0 0 0 4px rgba(232,0,13,0); }
+    }
+    .task-item.done .check { background: var(--muted); border-color: var(--muted); }
+    .check-tick { display:none; color:#fff; font-size:10px; }
+    .task-item.done .check-tick { display:block; }
+
+    .task-label { flex: 1; font-size: 14px; line-height: 1.4; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task-item.urgent:not(.done) .task-label { font-weight: 500; }
+
+    .task-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+
+    .due-tag { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+    .due-tag.overdue { color: var(--red); }
+    .due-tag.soon { color: #f5a623; }
+
+    .notes-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
+    .task-item.urgent .notes-dot { background: var(--red); }
+
+    .del-btn {
+      opacity: 0; background: transparent; border: none; color: var(--muted);
+      cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 3px;
+      transition: opacity 0.15s, color 0.15s; flex-shrink: 0;
+    }
+    .task-item:hover .del-btn { opacity: 1; }
+    .del-btn:hover { color: var(--red); }
+
+    .empty { text-align: center; color: var(--muted); font-size: 13px; padding: 60px 0; }
+
+    /* footer */
+    .footer {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 18px; display: flex; justify-content: center;
+    }
+    .secret-link {
+      font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted2);
+      letter-spacing: 1px; text-transform: uppercase; background: transparent;
+      border: none; cursor: pointer; transition: color 0.2s;
+    }
+    .secret-link:hover { color: var(--muted); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      z-index: 100; align-items: center; justify-content: center; padding: 16px;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface); border: 1px solid var(--border2); border-radius: 10px;
+      width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto;
+      padding: 24px; animation: mIn 0.18s ease;
+    }
+    @keyframes mIn { from { opacity:0; transform: scale(0.96); } to { opacity:1; transform: none; } }
+
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+    .modal-title { font-size: 15px; font-weight: 500; line-height: 1.3; flex: 1; margin-right: 12px; }
+    .modal-close {
+      background: transparent; border: none; color: var(--muted);
+      font-size: 18px; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: color 0.15s;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    .modal-field { margin-bottom: 16px; }
+    .field-label { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; display: block; }
+
+    .field-input, .field-textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px;
+      padding: 10px 12px; border-radius: 6px; outline: none; transition: border-color 0.15s;
+    }
+    .field-input:focus, .field-textarea:focus { border-color: var(--border2); }
+    .field-textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+    .field-input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.4); cursor: pointer; }
+
+    .urgent-check-row { display: flex; align-items: center; gap: 10px; }
+
+    .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+    .btn-save {
+      flex: 1; background: var(--text); color: var(--bg); border: none;
+      border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+      font-weight: 500; padding: 10px; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-save:hover { background: #bbb; }
+    .btn-secondary {
+      background: transparent; color: var(--muted); border: 1px solid var(--border);
+      border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+      padding: 10px 16px; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-secondary:hover { border-color: var(--border2); color: var(--text); }
+
+    /* ── CALENDAR ── */
+    #calView { display: none; max-width: 480px; margin: 0 auto; padding: 32px 16px 80px; min-height: 100vh; }
+    #calView.open { display: block; }
+
+    .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .cal-nav { display: flex; align-items: center; gap: 14px; }
+    .cal-month { font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--text); min-width: 140px; text-align: center; }
+    .nav-btn {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      border-radius: 4px; width: 28px; height: 28px; cursor: pointer; font-size: 14px;
+      transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+    }
+    .nav-btn:hover { border-color: var(--border2); color: var(--text); }
+    .back-link {
+      font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted2); background: transparent;
+      border: none; cursor: pointer; transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--muted); }
+
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+
+    .cal-day-name { font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); text-align: center; padding: 6px 0; }
+
+    .cal-day {
+      aspect-ratio: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; border-radius: 6px; cursor: pointer;
+      border: 1px solid transparent; transition: all 0.12s;
+      padding: 4px; gap: 3px; background: transparent;
+    }
+    .cal-day:hover { background: var(--surface); border-color: var(--border); }
+    .cal-day.empty { cursor: default; pointer-events: none; }
+    .cal-day.today { border-color: var(--red); }
+    .cal-day.today .day-num { color: var(--red); font-weight: 600; }
+    .cal-day.has-tasks { background: var(--surface); }
+    .cal-day.selected { border-color: var(--border2) !important; background: var(--surface2) !important; }
+
+    .day-num { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); line-height: 1; }
+    .cal-day.faded .day-num { color: var(--muted2); }
+
+    .day-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; min-height: 5px; }
+    .day-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+    .day-dot.urgent { background: var(--red); }
+
+    .cal-day-detail { margin-top: 18px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+    .cal-day-detail-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+    .cal-task-row {
+      display: flex; align-items: center; gap: 8px; padding: 8px 0;
+      border-bottom: 1px solid var(--border); cursor: pointer; transition: opacity 0.15s;
+    }
+    .cal-task-row:last-of-type { border-bottom: none; }
+    .cal-task-row:hover { opacity: 0.7; }
+
+    .cal-task-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .cal-task-dot.urgent { background: var(--red); }
+    .cal-task-name { flex: 1; font-size: 13px; }
+
+    .cal-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 10px 0; }
+
+    .cal-add-btn {
+      width: 100%; margin-top: 10px; background: transparent; border: 1px dashed var(--border);
+      color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 13px;
+      padding: 8px; border-radius: 6px; cursor: pointer; transition: all 0.15s;
+    }
+    .cal-add-btn:hover { border-color: var(--border2); color: var(--text); }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+  </style>
 </head>
 <body>
-    <!-- Login Screen -->
-    <div class="login-container" id="loginScreen">
-        <div class="help-icon" onclick="toggleHelp()">?</div>
-        <div class="help-tooltip" id="helpTooltip">
-            <h4>Student Login</h4>
-            <p><strong>Username:</strong> test</p>
-            <p><strong>Password:</strong> 1234</p>
-        </div>
 
-        <div class="logo-section">
-            <div class="logo">Fady</div>
-            <div class="subtitle">Assessment Platform</div>
-        </div>
+<!-- MAIN -->
+<div id="app">
+  <div class="input-row">
+    <input class="task-input" id="taskInput" type="text" placeholder="add a task..." maxlength="200" autocomplete="off" />
+    <button class="add-btn" id="addBtn">+</button>
+  </div>
 
-        <div>
-            <div class="form-group">
-                <label class="form-label">Username</label>
-                <input type="text" class="form-input" id="username" placeholder="Enter your username">
-            </div>
+  <div class="urgent-row">
+    <button class="toggle" id="urgentToggle"></button>
+    <span class="toggle-label" id="urgentLabel">urgent</span>
+  </div>
 
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="password" class="form-input" id="password" placeholder="Enter your password">
-            </div>
+  <div class="filters">
+    <button class="pill active" data-f="all">all</button>
+    <button class="pill" data-f="urgent">urgent</button>
+    <button class="pill" data-f="done">done</button>
+  </div>
 
-            <button type="button" class="btn-login" onclick="attemptLogin()">Sign In</button>
-            
-            <div class="error-message" id="errorMsg">
-                Invalid username or password. Please try again.
-            </div>
-        </div>
+  <div class="task-list" id="taskList"></div>
+</div>
 
-        <div class="help-text">
-            Need help? Contact your teacher or administrator.
-        </div>
+<!-- CALENDAR -->
+<div id="calView">
+  <div class="cal-header">
+    <button class="back-link" id="backBtn">← back</button>
+    <div class="cal-nav">
+      <button class="nav-btn" id="prevMonth">‹</button>
+      <div class="cal-month" id="calMonth"></div>
+      <button class="nav-btn" id="nextMonth">›</button>
     </div>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+  <div id="calDayDetail"></div>
+</div>
 
-    <!-- Test Selection Screen -->
-    <div class="test-selection" id="testSelection">
-        <div class="selection-header">
-            <div class="selection-title">Select Your Assessment</div>
-            <div class="selection-subtitle">Student: <span id="studentNameSelection"></span></div>
-        </div>
+<!-- FOOTER -->
+<div class="footer" id="mainFooter">
+  <button class="secret-link" id="calBtn">calendar</button>
+</div>
 
-        <div class="selection-content">
-            <div class="test-category">
-                <div class="category-title">Mathematics</div>
-                <div class="test-grid">
-                    <div class="test-card" onclick="startTest('Algebra 1')">
-                        <div class="test-name">Algebra 1</div>
-                        <div class="test-desc">Linear equations & functions</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Algebra 2')">
-                        <div class="test-name">Algebra 2</div>
-                        <div class="test-desc">Advanced algebra concepts</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Geometry')">
-                        <div class="test-name">Geometry</div>
-                        <div class="test-desc">Shapes, angles & proofs</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Pre-Calculus')">
-                        <div class="test-name">Pre-Calculus</div>
-                        <div class="test-desc">Trigonometry & functions</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Calculus')">
-                        <div class="test-name">Calculus</div>
-                        <div class="test-desc">Derivatives & integrals</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="test-category">
-                <div class="category-title">English Language Arts</div>
-                <div class="test-grid">
-                    <div class="test-card" onclick="startTest('Reading Comprehension')">
-                        <div class="test-name">Reading Comprehension</div>
-                        <div class="test-desc">Understanding passages</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Grammar & Writing')">
-                        <div class="test-name">Grammar & Writing</div>
-                        <div class="test-desc">Language mechanics</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Literature Analysis')">
-                        <div class="test-name">Literature Analysis</div>
-                        <div class="test-desc">Literary devices & themes</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="test-category">
-                <div class="category-title">Science</div>
-                <div class="test-grid">
-                    <div class="test-card" onclick="startTest('Biology')">
-                        <div class="test-name">Biology</div>
-                        <div class="test-desc">Life sciences</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Chemistry')">
-                        <div class="test-name">Chemistry</div>
-                        <div class="test-desc">Matter & reactions</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Physics')">
-                        <div class="test-name">Physics</div>
-                        <div class="test-desc">Motion & energy</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Earth Science')">
-                        <div class="test-name">Earth Science</div>
-                        <div class="test-desc">Geology & weather</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="test-category">
-                <div class="category-title">Practice Tests</div>
-                <div class="test-grid">
-                    <div class="test-card" onclick="startTest('Math Practice')">
-                        <div class="test-name">Math Practice</div>
-                        <div class="test-desc">General math review</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Reading Practice')">
-                        <div class="test-name">Reading Practice</div>
-                        <div class="test-desc">Reading skills review</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Science Practice')">
-                        <div class="test-name">Science Practice</div>
-                        <div class="test-desc">Science concepts review</div>
-                    </div>
-                    <div class="test-card" onclick="startTest('Full Practice Test')">
-                        <div class="test-name">Full Practice Test</div>
-                        <div class="test-desc">All subjects combined</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Secret admin trigger -->
-        <div class="admin-trigger" onclick="triggerAdmin()"></div>
+<!-- TASK MODAL -->
+<div class="modal-overlay" id="taskModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" id="modalClose">×</button>
     </div>
-
-    <!-- Test Screen -->
-    <div class="test-screen" id="testScreen">
-        <button class="exit-btn" onclick="exitTest()">Exit Test</button>
-        <div class="header">
-            <div class="header-logo">Fady</div>
-            <div class="timer">Time Remaining: <span id="timer">45:00</span></div>
-        </div>
-
-        <div class="main-content">
-            <div class="student-info">
-                Student: <strong id="studentName"></strong> | Test: <strong id="testType"></strong>
-            </div>
-
-            <div class="progress-bar">
-                <div class="progress-fill" id="progress"></div>
-            </div>
-
-            <div class="question-box">
-                <div class="question-number">Question <span id="q-num">1</span> of <span id="total-q">10</span></div>
-                <div class="question-text" id="question"></div>
-                <div class="options" id="options"></div>
-            </div>
-
-            <div class="nav-buttons">
-                <button class="btn btn-next" onclick="nextQuestion()">Next Question →</button>
-            </div>
-        </div>
+    <div class="modal-field">
+      <label class="field-label" for="editText">task</label>
+      <input class="field-input" id="editText" type="text" maxlength="200" />
     </div>
-
-    <div class="overlay" id="overlay" onclick="closeAdmin()"></div>
-    <div class="admin-panel" id="adminPanel">
-        <h2>Admin Panel</h2>
-        
-        <div class="admin-tabs">
-            <button class="admin-tab active" onclick="switchTab('questions')">Edit Questions</button>
-            <button class="admin-tab" onclick="switchTab('results')">View Results</button>
-            <button class="admin-tab" onclick="switchTab('study')">Study Materials</button>
-        </div>
-
-        <div class="admin-content active" id="questionsTab">
-            <p style="color: #666; margin: 10px 0;">Edit the questions JSON below:</p>
-            <textarea class="admin-textarea" id="questionsInput"></textarea>
-            <button class="btn btn-next" onclick="saveQuestions()" style="margin-top: 10px;">Save Questions</button>
-        </div>
-
-        <div class="admin-content" id="resultsTab">
-            <h3>Student Results</h3>
-            <table class="results-table" id="resultsTable">
-                <thead>
-                    <tr>
-                        <th>Username</th>
-                        <th>Test Type</th>
-                        <th>Date</th>
-                        <th>Score</th>
-                        <th>Questions</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="resultsBody">
-                </tbody>
-            </table>
-        </div>
-
-        <div class="admin-content" id="studyTab">
-            <h3>Study Materials</h3>
-            <div id="studyContent"></div>
-        </div>
-
-        <button class="btn" onclick="closeAdmin()" style="margin-top: 10px; background: #666; color: white;">Close</button>
+    <div class="modal-field">
+      <label class="field-label" for="editNotes">notes</label>
+      <textarea class="field-textarea" id="editNotes" placeholder="anything you want to remember..."></textarea>
     </div>
+    <div class="modal-field">
+      <label class="field-label" for="editDue">due date</label>
+      <input class="field-input" id="editDue" type="date" />
+    </div>
+    <div class="modal-field">
+      <div class="urgent-check-row">
+        <button class="toggle" id="editUrgent"></button>
+        <span class="field-label" style="margin-bottom:0">urgent</span>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modalDelete">delete</button>
+      <button class="btn-save" id="modalSave">save</button>
+    </div>
+  </div>
+</div>
 
-    <script>
-        // Login credentials
-        const testUser = 'test';
-        const testPass = '1234';
-        const adminUser = 'fady123';
-        const adminPass = 'acla';
+<script>
+  let tasks = [];
+  let filter = 'all';
+  let urgentNew = false;
+  let editingId = null;
+  let editUrgentVal = false;
+  let calDate = new Date();
+  let selectedCalDay = null;
 
-        // Store results
-        let testResults = [];
-        let currentStudent = '';
-        let currentTestType = '';
+  const load = () => { try { tasks = JSON.parse(localStorage.getItem('doit_v2') || '[]'); } catch { tasks = []; } };
+  const save = () => localStorage.setItem('doit_v2', JSON.stringify(tasks));
+  const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const today = () => new Date().toISOString().slice(0,10);
 
-        // Default questions (customize these!)
-        let questions = [
-            // Chemistry Questions
-            {
-                question: "What is the molar mass of water (H₂O)? (H=1, O=16)",
-                options: ["16 g/mol", "17 g/mol", "18 g/mol", "19 g/mol"],
-                correct: 2
-            },
-            {
-                question: "Which element has the electron configuration 1s² 2s² 2p⁶ 3s² 3p⁶ 4s¹?",
-                options: ["Sodium (Na)", "Potassium (K)", "Calcium (Ca)", "Argon (Ar)"],
-                correct: 1
-            },
-            {
-                question: "What type of bond forms when electrons are shared between atoms?",
-                options: ["Ionic bond", "Covalent bond", "Metallic bond", "Hydrogen bond"],
-                correct: 1
-            },
-            {
-                question: "According to Le Chatelier's Principle, if you increase the pressure in a gas reaction, the equilibrium shifts toward:",
-                options: ["The side with more moles of gas", "The side with fewer moles of gas", "Neither side", "The exothermic direction"],
-                correct: 1
-            },
-            {
-                question: "What is Avogadro's number?",
-                options: ["6.022 × 10²¹", "6.022 × 10²³", "6.022 × 10²⁴", "6.022 × 10²²"],
-                correct: 1
-            },
-            {
-                question: "In an exothermic reaction, energy is:",
-                options: ["Absorbed from surroundings", "Released to surroundings", "Neither absorbed nor released", "Converted to matter"],
-                correct: 1
-            },
-            {
-                question: "What is the pH of a neutral solution at 25°C?",
-                options: ["0", "7", "14", "1"],
-                correct: 1
-            },
-            {
-                question: "Which gas law states that pressure and volume are inversely proportional at constant temperature?",
-                options: ["Charles's Law", "Boyle's Law", "Gay-Lussac's Law", "Avogadro's Law"],
-                correct: 1
-            },
-            {
-                question: "What is the correct formula for calculating molarity?",
-                options: ["moles / mass", "moles / volume (L)", "mass / volume", "volume / moles"],
-                correct: 1
-            },
-            {
-                question: "Which of the following is a strong acid?",
-                options: ["Acetic acid (CH₃COOH)", "Hydrochloric acid (HCl)", "Carbonic acid (H₂CO₃)", "Phosphoric acid (H₃PO₄)"],
-                correct: 1
-            },
-            {
-                question: "What happens to the rate of a chemical reaction when temperature increases?",
-                options: ["Decreases", "Increases", "Stays the same", "Becomes zero"],
-                correct: 1
-            },
-            {
-                question: "In the periodic table, elements in the same group have the same number of:",
-                options: ["Protons", "Neutrons", "Valence electrons", "Energy levels"],
-                correct: 2
-            },
-            {
-                question: "What is the oxidation state of oxygen in H₂O?",
-                options: ["+2", "-2", "0", "+1"],
-                correct: 1
-            },
-            {
-                question: "Which type of intermolecular force is the strongest?",
-                options: ["London dispersion forces", "Dipole-dipole forces", "Hydrogen bonding", "Ionic bonding"],
-                correct: 2
-            },
-            {
-                question: "What is the limiting reactant in a chemical reaction?",
-                options: ["The reactant in excess", "The reactant that runs out first", "The product formed", "The catalyst used"],
-                correct: 1
-            },
-            {
-                question: "At STP, what is the volume of 1 mole of any ideal gas?",
-                options: ["11.2 L", "22.4 L", "33.6 L", "44.8 L"],
-                correct: 1
-            },
-            {
-                question: "What is the process called when a solid changes directly to a gas?",
-                options: ["Melting", "Vaporization", "Sublimation", "Deposition"],
-                correct: 2
-            },
-            {
-                question: "Which quantum number describes the shape of an orbital?",
-                options: ["Principal (n)", "Angular momentum (l)", "Magnetic (m)", "Spin (s)"],
-                correct: 1
-            },
-            {
-                question: "What is the empirical formula of a compound with the molecular formula C₆H₁₂O₆?",
-                options: ["C₆H₁₂O₆", "CH₂O", "C₃H₆O₃", "C₂H₄O₂"],
-                correct: 1
-            },
-            {
-                question: "Which law states that matter cannot be created or destroyed in a chemical reaction?",
-                options: ["Law of definite proportions", "Law of conservation of mass", "Law of multiple proportions", "Ideal gas law"],
-                correct: 1
-            },
-            {
-                question: "What does a catalyst do in a chemical reaction?",
-                options: ["Increases activation energy", "Decreases activation energy", "Gets consumed", "Changes the equilibrium position"],
-                correct: 1
-            },
-            {
-                question: "What is the conjugate base of HCl?",
-                options: ["H₂Cl", "Cl⁻", "H⁺", "HCl₂"],
-                correct: 1
-            },
-            {
-                question: "In a galvanic cell, oxidation occurs at the:",
-                options: ["Cathode", "Anode", "Salt bridge", "Neither electrode"],
-                correct: 1
-            },
-            {
-                question: "What is the correct order of electronegativity (highest to lowest)?",
-                options: ["F > O > N > C", "O > F > N > C", "N > O > F > C", "C > N > O > F"],
-                correct: 0
-            },
-            {
-                question: "Which of the following compounds is ionic?",
-                options: ["CO₂", "NaCl", "CH₄", "H₂O"],
-                correct: 1
-            },
-            {
-                question: "What is the hybridization of carbon in methane (CH₄)?",
-                options: ["sp", "sp²", "sp³", "sp³d"],
-                correct: 2
-            },
-            {
-                question: "Which noble gas has the electron configuration [Ar] 3d¹⁰ 4s² 4p⁶?",
-                options: ["Argon", "Krypton", "Xenon", "Radon"],
-                correct: 1
-            },
-            {
-                question: "What is the percent composition of oxygen in CO₂? (C=12, O=16)",
-                options: ["27.3%", "50%", "72.7%", "36.4%"],
-                correct: 2
-            },
-            {
-                question: "Which reaction type involves a single compound breaking down into two or more products?",
-                options: ["Synthesis", "Decomposition", "Single replacement", "Double replacement"],
-                correct: 1
-            },
-            {
-                question: "What is entropy a measure of?",
-                options: ["Heat content", "Disorder", "Temperature", "Pressure"],
-                correct: 1
-            },
-            // Algebra 2 Questions
-            {
-                question: "Solve for x: 2x² - 8x + 6 = 0",
-                options: ["x = 1 or x = 3", "x = 2 or x = 4", "x = -1 or x = -3", "x = 1 or x = -3"],
-                correct: 0
-            },
-            {
-                question: "What is the vertex of the parabola y = (x - 3)² + 2?",
-                options: ["(3, 2)", "(-3, 2)", "(3, -2)", "(-3, -2)"],
-                correct: 0
-            },
-            {
-                question: "If log₂(x) = 5, what is x?",
-                options: ["10", "25", "32", "64"],
-                correct: 2
-            },
-            {
-                question: "Simplify: (x³y²)⁴",
-                options: ["x⁷y⁶", "x¹²y⁸", "x⁷y⁸", "x¹²y⁶"],
-                correct: 1
-            },
-            {
-                question: "What is the solution to 3^x = 27?",
-                options: ["x = 2", "x = 3", "x = 4", "x = 9"],
-                correct: 1
-            },
-            // Biology Questions
-            {
-                question: "Which organelle is responsible for protein synthesis?",
-                options: ["Mitochondria", "Ribosome", "Golgi apparatus", "Lysosome"],
-                correct: 1
-            },
-            {
-                question: "What is the complementary DNA strand to ATCG?",
-                options: ["TAGC", "UAGC", "ATCG", "GCTA"],
-                correct: 0
-            },
-            {
-                question: "In which phase of mitosis do chromosomes line up at the cell's equator?",
-                options: ["Prophase", "Metaphase", "Anaphase", "Telophase"],
-                correct: 1
-            },
-            {
-                question: "What is the primary function of chloroplasts?",
-                options: ["Cellular respiration", "Photosynthesis", "Protein synthesis", "Lipid storage"],
-                correct: 1
-            },
-            {
-                question: "Which macromolecule stores genetic information?",
-                options: ["Carbohydrates", "Lipids", "Proteins", "Nucleic acids"],
-                correct: 3
-            }
-        ];
+  function dueMeta(due) {
+    if (!due) return null;
+    const d = new Date(due + 'T00:00:00');
+    const t = new Date(); t.setHours(0,0,0,0);
+    const diff = Math.round((d - t) / 86400000);
+    if (diff < 0)  return { label: `${Math.abs(diff)}d ago`, cls: 'overdue' };
+    if (diff === 0) return { label: 'today', cls: 'soon' };
+    if (diff === 1) return { label: 'tmrw', cls: 'soon' };
+    return { label: due.slice(5).replace('-','/'), cls: '' };
+  }
 
-        let currentQuestion = 0;
-        let selectedAnswer = -1;
-        let clickCount = 0;
-        let timeLeft = 2700; // 45 minutes
-        let lastClickTime = 0;
-        let studentAnswers = [];
+  // ── Render tasks ──
+  function renderTasks() {
+    const list = document.getElementById('taskList');
+    list.innerHTML = '';
 
-        // Study Materials Data
-        const studyMaterials = {
-            'Algebra 2': {
-                topics: [
-                    {
-                        title: 'Quadratic Functions',
-                        content: `
-                            <h4>Standard Form</h4>
-                            <div class="formula">f(x) = ax² + bx + c</div>
-                            <p>Key concepts:</p>
-                            <ul>
-                                <li>Vertex: Use x = -b/(2a) to find x-coordinate</li>
-                                <li>Axis of symmetry: x = -b/(2a)</li>
-                                <li>Opens upward if a > 0, downward if a < 0</li>
-                            </ul>
-                            <h4>Vertex Form</h4>
-                            <div class="formula">f(x) = a(x - h)² + k</div>
-                            <p>Where (h, k) is the vertex</p>
-                        `
-                    },
-                    {
-                        title: 'Exponential Functions',
-                        content: `
-                            <h4>Basic Form</h4>
-                            <div class="formula">f(x) = a · b^x</div>
-                            <ul>
-                                <li>If b > 1: exponential growth</li>
-                                <li>If 0 < b < 1: exponential decay</li>
-                                <li>a is the initial value (y-intercept)</li>
-                            </ul>
-                            <h4>Compound Interest Formula</h4>
-                            <div class="formula">A = P(1 + r/n)^(nt)</div>
-                            <p>P = principal, r = rate, n = compounds per year, t = time</p>
-                        `
-                    },
-                    {
-                        title: 'Logarithms',
-                        content: `
-                            <h4>Log Properties</h4>
-                            <ul>
-                                <li>log(ab) = log(a) + log(b)</li>
-                                <li>log(a/b) = log(a) - log(b)</li>
-                                <li>log(a^n) = n · log(a)</li>
-                                <li>log_b(b) = 1</li>
-                                <li>log_b(1) = 0</li>
-                            </ul>
-                            <h4>Change of Base</h4>
-                            <div class="formula">log_b(x) = log(x) / log(b)</div>
-                        `
-                    },
-                    {
-                        title: 'Rational Functions',
-                        content: `
-                            <h4>General Form</h4>
-                            <div class="formula">f(x) = P(x) / Q(x)</div>
-                            <p>Key features:</p>
-                            <ul>
-                                <li>Vertical asymptotes: Set Q(x) = 0</li>
-                                <li>Horizontal asymptotes: Compare degrees of P and Q</li>
-                                <li>Holes: Common factors in numerator and denominator</li>
-                            </ul>
-                        `
-                    }
-                ]
-            },
-            'Chemistry': {
-                topics: [
-                    {
-                        title: 'Atomic Structure',
-                        content: `
-                            <h4>Subatomic Particles</h4>
-                            <ul>
-                                <li>Protons: +1 charge, mass ≈ 1 amu, in nucleus</li>
-                                <li>Neutrons: 0 charge, mass ≈ 1 amu, in nucleus</li>
-                                <li>Electrons: -1 charge, negligible mass, in orbitals</li>
-                            </ul>
-                            <h4>Atomic Number & Mass</h4>
-                            <p>Atomic number (Z) = number of protons</p>
-                            <p>Mass number (A) = protons + neutrons</p>
-                            <p>Isotopes: Same Z, different A (different neutrons)</p>
-                        `
-                    },
-                    {
-                        title: 'Chemical Bonding',
-                        content: `
-                            <h4>Ionic Bonds</h4>
-                            <ul>
-                                <li>Transfer of electrons</li>
-                                <li>Between metal and nonmetal</li>
-                                <li>High melting points, conduct electricity when dissolved</li>
-                            </ul>
-                            <h4>Covalent Bonds</h4>
-                            <ul>
-                                <li>Sharing of electrons</li>
-                                <li>Between nonmetals</li>
-                                <li>Single, double, or triple bonds</li>
-                            </ul>
-                            <h4>Electronegativity</h4>
-                            <p>Difference > 1.7 = ionic, < 1.7 = covalent</p>
-                        `
-                    },
-                    {
-                        title: 'Stoichiometry',
-                        content: `
-                            <h4>Mole Conversions</h4>
-                            <div class="formula">1 mole = 6.022 × 10²³ particles (Avogadro's number)</div>
-                            <div class="formula">moles = mass (g) / molar mass (g/mol)</div>
-                            <h4>Balanced Equations</h4>
-                            <p>Steps:</p>
-                            <ul>
-                                <li>1. Write unbalanced equation</li>
-                                <li>2. Balance atoms one at a time</li>
-                                <li>3. Check all atoms are balanced</li>
-                                <li>4. Reduce coefficients if possible</li>
-                            </ul>
-                        `
-                    },
-                    {
-                        title: 'Gas Laws',
-                        content: `
-                            <h4>Ideal Gas Law</h4>
-                            <div class="formula">PV = nRT</div>
-                            <p>P = pressure (atm), V = volume (L), n = moles, R = 0.0821, T = temperature (K)</p>
-                            <h4>Combined Gas Law</h4>
-                            <div class="formula">P₁V₁/T₁ = P₂V₂/T₂</div>
-                            <h4>Other Laws</h4>
-                            <ul>
-                                <li>Boyle's Law: P₁V₁ = P₂V₂ (constant T)</li>
-                                <li>Charles's Law: V₁/T₁ = V₂/T₂ (constant P)</li>
-                            </ul>
-                        `
-                    }
-                ]
-            },
-            'AP Biology': {
-                topics: [
-                    {
-                        title: 'Cell Structure',
-                        content: `
-                            <h4>Prokaryotic vs Eukaryotic</h4>
-                            <p><strong>Prokaryotic:</strong> No nucleus, smaller, bacteria</p>
-                            <p><strong>Eukaryotic:</strong> Has nucleus, larger, plants/animals</p>
-                            <h4>Key Organelles</h4>
-                            <ul>
-                                <li>Mitochondria: ATP production (cellular respiration)</li>
-                                <li>Chloroplasts: Photosynthesis (plants only)</li>
-                                <li>Ribosomes: Protein synthesis</li>
-                                <li>ER: Protein (rough) and lipid (smooth) synthesis</li>
-                                <li>Golgi: Modify and package proteins</li>
-                            </ul>
-                        `
-                    },
-                    {
-                        title: 'Cellular Respiration',
-                        content: `
-                            <h4>Overall Equation</h4>
-                            <div class="formula">C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + ATP</div>
-                            <h4>Stages</h4>
-                            <ul>
-                                <li><strong>Glycolysis:</strong> Cytoplasm, produces 2 ATP (net)</li>
-                                <li><strong>Krebs Cycle:</strong> Mitochondrial matrix, produces 2 ATP</li>
-                                <li><strong>Electron Transport Chain:</strong> Inner membrane, produces ~34 ATP</li>
-                            </ul>
-                            <p>Total: ~38 ATP per glucose</p>
-                        `
-                    },
-                    {
-                        title: 'Photosynthesis',
-                        content: `
-                            <h4>Overall Equation</h4>
-                            <div class="formula">6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂</div>
-                            <h4>Light Reactions (Thylakoid)</h4>
-                            <ul>
-                                <li>Uses light energy</li>
-                                <li>Produces ATP and NADPH</li>
-                                <li>Splits water, releases O₂</li>
-                            </ul>
-                            <h4>Calvin Cycle (Stroma)</h4>
-                            <ul>
-                                <li>Uses ATP and NADPH</li>
-                                <li>Fixes CO₂ into glucose</li>
-                                <li>Doesn't require light directly</li>
-                            </ul>
-                        `
-                    },
-                    {
-                        title: 'DNA & Genetics',
-                        content: `
-                            <h4>DNA Structure</h4>
-                            <ul>
-                                <li>Double helix</li>
-                                <li>Base pairs: A-T, G-C</li>
-                                <li>Sugar-phosphate backbone</li>
-                            </ul>
-                            <h4>Central Dogma</h4>
-                            <div class="formula">DNA → RNA → Protein</div>
-                            <ul>
-                                <li><strong>Transcription:</strong> DNA to mRNA (in nucleus)</li>
-                                <li><strong>Translation:</strong> mRNA to protein (at ribosome)</li>
-                            </ul>
-                            <h4>Mendelian Genetics</h4>
-                            <ul>
-                                <li>Dominant alleles: Expressed when present</li>
-                                <li>Recessive alleles: Only expressed when homozygous</li>
-                                <li>Use Punnett squares for predictions</li>
-                            </ul>
-                        `
-                    }
-                ]
-            },
-            'AP Calculus': {
-                topics: [
-                    {
-                        title: 'Limits',
-                        content: `
-                            <h4>Limit Definition</h4>
-                            <div class="formula">lim(x→a) f(x) = L</div>
-                            <p>As x approaches a, f(x) approaches L</p>
-                            <h4>Limit Laws</h4>
-                            <ul>
-                                <li>lim[f(x) + g(x)] = lim f(x) + lim g(x)</li>
-                                <li>lim[f(x) · g(x)] = lim f(x) · lim g(x)</li>
-                                <li>lim[f(x)/g(x)] = lim f(x) / lim g(x)</li>
-                            </ul>
-                            <h4>Special Limits</h4>
-                            <div class="formula">lim(x→0) (sin x)/x = 1</div>
-                        `
-                    },
-                    {
-                        title: 'Derivatives',
-                        content: `
-                            <h4>Definition</h4>
-                            <div class="formula">f'(x) = lim(h→0) [f(x+h) - f(x)]/h</div>
-                            <h4>Power Rule</h4>
-                            <div class="formula">d/dx(x^n) = nx^(n-1)</div>
-                            <h4>Common Derivatives</h4>
-                            <ul>
-                                <li>d/dx(sin x) = cos x</li>
-                                <li>d/dx(cos x) = -sin x</li>
-                                <li>d/dx(e^x) = e^x</li>
-                                <li>d/dx(ln x) = 1/x</li>
-                            </ul>
-                            <h4>Chain Rule</h4>
-                            <div class="formula">d/dx[f(g(x))] = f'(g(x)) · g'(x)</div>
-                        `
-                    },
-                    {
-                        title: 'Integrals',
-                        content: `
-                            <h4>Definite Integral</h4>
-                            <div class="formula">∫[a to b] f(x)dx = F(b) - F(a)</div>
-                            <p>Where F'(x) = f(x)</p>
-                            <h4>Power Rule for Integration</h4>
-                            <div class="formula">∫x^n dx = x^(n+1)/(n+1) + C</div>
-                            <h4>Common Integrals</h4>
-                            <ul>
-                                <li>∫sin x dx = -cos x + C</li>
-                                <li>∫cos x dx = sin x + C</li>
-                                <li>∫e^x dx = e^x + C</li>
-                                <li>∫(1/x) dx = ln|x| + C</li>
-                            </ul>
-                        `
-                    }
-                ]
-            },
-            'AP Physics': {
-                topics: [
-                    {
-                        title: 'Kinematics',
-                        content: `
-                            <h4>Motion Equations (constant acceleration)</h4>
-                            <div class="formula">v = v₀ + at</div>
-                            <div class="formula">x = x₀ + v₀t + ½at²</div>
-                            <div class="formula">v² = v₀² + 2a(x - x₀)</div>
-                            <p>v = velocity, a = acceleration, t = time, x = position</p>
-                            <h4>Free Fall</h4>
-                            <p>a = g = 9.8 m/s² (downward)</p>
-                        `
-                    },
-                    {
-                        title: 'Newton\'s Laws',
-                        content: `
-                            <h4>First Law (Inertia)</h4>
-                            <p>An object at rest stays at rest unless acted upon by a net force</p>
-                            <h4>Second Law</h4>
-                            <div class="formula">F = ma</div>
-                            <p>Force = mass × acceleration</p>
-                            <h4>Third Law</h4>
-                            <p>For every action, there's an equal and opposite reaction</p>
-                            <h4>Weight</h4>
-                            <div class="formula">W = mg</div>
-                        `
-                    },
-                    {
-                        title: 'Energy & Work',
-                        content: `
-                            <h4>Work</h4>
-                            <div class="formula">W = F · d · cos(θ)</div>
-                            <p>F = force, d = distance, θ = angle between F and d</p>
-                            <h4>Kinetic Energy</h4>
-                            <div class="formula">KE = ½mv²</div>
-                            <h4>Potential Energy</h4>
-                            <div class="formula">PE = mgh</div>
-                            <h4>Conservation of Energy</h4>
-                            <p>Total energy remains constant in isolated system</p>
-                        `
-                    }
-                ]
-            },
-            'Geometry': {
-                topics: [
-                    {
-                        title: 'Area Formulas',
-                        content: `
-                            <h4>Common Shapes</h4>
-                            <ul>
-                                <li>Rectangle: A = length × width</li>
-                                <li>Triangle: A = ½ × base × height</li>
-                                <li>Circle: A = πr²</li>
-                                <li>Trapezoid: A = ½(b₁ + b₂)h</li>
-                            </ul>
-                        `
-                    },
-                    {
-                        title: 'Volume Formulas',
-                        content: `
-                            <h4>3D Shapes</h4>
-                            <ul>
-                                <li>Cube: V = s³</li>
-                                <li>Rectangular Prism: V = l × w × h</li>
-                                <li>Cylinder: V = πr²h</li>
-                                <li>Sphere: V = (4/3)πr³</li>
-                                <li>Cone: V = (1/3)πr²h</li>
-                            </ul>
-                        `
-                    },
-                    {
-                        title: 'Pythagorean Theorem',
-                        content: `
-                            <h4>Formula</h4>
-                            <div class="formula">a² + b² = c²</div>
-                            <p>For right triangles: legs a, b and hypotenuse c</p>
-                            <h4>Special Right Triangles</h4>
-                            <ul>
-                                <li>30-60-90: sides in ratio 1 : √3 : 2</li>
-                                <li>45-45-90: sides in ratio 1 : 1 : √2</li>
-                            </ul>
-                        `
-                    }
-                ]
-            }
-        };
+    let shown = tasks.filter(t => {
+      if (filter === 'urgent') return t.urgent && !t.done;
+      if (filter === 'done')   return t.done;
+      return true;
+    });
 
-        // Admin trigger function
-        function triggerAdmin() {
-            const now = Date.now();
-            if (now - lastClickTime > 2000) {
-                clickCount = 0;
-            }
-            lastClickTime = now;
-            clickCount++;
-            
-            if (clickCount >= 5) {
-                clickCount = 0;
-                openAdmin();
-            }
-        }
+    shown.sort((a,b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
+      if (a.due && b.due) return a.due.localeCompare(b.due);
+      if (a.due) return -1; if (b.due) return 1;
+      return b.created - a.created;
+    });
 
-        // Toggle help tooltip
-        function toggleHelp() {
-            const tooltip = document.getElementById('helpTooltip');
-            tooltip.classList.toggle('show');
-        }
+    if (!shown.length) {
+      list.innerHTML = '<div class="empty">nothing here</div>';
+      return;
+    }
 
-        // Close tooltip when clicking outside
-        document.addEventListener('click', function(event) {
-            const tooltip = document.getElementById('helpTooltip');
-            const helpIcon = document.querySelector('.help-icon');
-            if (tooltip && helpIcon && !helpIcon.contains(event.target) && !tooltip.contains(event.target)) {
-                tooltip.classList.remove('show');
-            }
-        });
+    shown.forEach(t => {
+      const div = document.createElement('div');
+      div.className = `task-item${t.urgent ? ' urgent' : ''}${t.done ? ' done' : ''}`;
 
-        // Login function
-        function attemptLogin() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            
-            if (username === adminUser && password === adminPass) {
-                // Admin login - go straight to admin panel
-                openAdmin();
-            } else if (username === testUser && password === testPass) {
-                // Student login - go to test selection
-                currentStudent = username;
-                document.getElementById('loginScreen').style.display = 'none';
-                document.getElementById('testSelection').classList.add('active');
-                document.getElementById('studentNameSelection').textContent = username;
-            } else {
-                document.getElementById('errorMsg').classList.add('show');
-                document.getElementById('password').value = '';
-                setTimeout(() => {
-                    document.getElementById('errorMsg').classList.remove('show');
-                }, 3000);
-            }
-        }
+      const chk = document.createElement('button');
+      chk.className = 'check';
+      chk.innerHTML = '<span class="check-tick">✓</span>';
+      chk.addEventListener('click', e => { e.stopPropagation(); toggleDone(t.id); });
 
-        // Start test
-        function startTest(testType) {
-            currentTestType = testType;
-            
-            // Load saved progress if exists
-            const savedTest = localStorage.getItem('currentTest');
-            if (savedTest) {
-                const testData = JSON.parse(savedTest);
-                if (confirm('You have an unfinished test. Would you like to continue where you left off?')) {
-                    currentQuestion = testData.currentQuestion;
-                    studentAnswers = testData.answers;
-                    timeLeft = testData.timeLeft;
-                }
-            }
-            
-            document.getElementById('testSelection').classList.remove('active');
-            document.getElementById('testScreen').classList.add('active');
-            document.getElementById('studentName').textContent = currentStudent;
-            document.getElementById('testType').textContent = testType;
-            enterFullscreen();
-            loadQuestion();
-            startTimer();
-        }
+      const lbl = document.createElement('span');
+      lbl.className = 'task-label';
+      lbl.textContent = t.text;
 
-        // Save test progress
-        function saveTestProgress() {
-            const testData = {
-                student: currentStudent,
-                testType: currentTestType,
-                currentQuestion: currentQuestion,
-                answers: studentAnswers,
-                timeLeft: timeLeft,
-                timestamp: new Date().toISOString()
-            };
-            localStorage.setItem('currentTest', JSON.stringify(testData));
-        }
+      const meta = document.createElement('div');
+      meta.className = 'task-meta';
 
-        // Exit test
-        function exitTest() {
-            if (confirm('Are you sure you want to exit? Your progress will be saved.')) {
-                saveTestProgress();
-                document.getElementById('testScreen').classList.remove('active');
-                document.getElementById('testSelection').classList.add('active');
-                if (document.fullscreenElement) {
-                    document.exitFullscreen();
-                }
-            }
-        }
+      const dm = dueMeta(t.due);
+      if (dm) {
+        const tag = document.createElement('span');
+        tag.className = `due-tag ${dm.cls}`;
+        tag.textContent = dm.label;
+        meta.appendChild(tag);
+      }
 
-        // Allow Enter key to submit
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('username').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') attemptLogin();
-            });
-            document.getElementById('password').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') attemptLogin();
-            });
-        });
+      if (t.notes && t.notes.trim()) {
+        const dot = document.createElement('div');
+        dot.className = 'notes-dot';
+        meta.appendChild(dot);
+      }
 
-        function enterFullscreen() {
-            const elem = document.documentElement;
-            if (elem.requestFullscreen) {
-                elem.requestFullscreen();
-            } else if (elem.webkitRequestFullscreen) {
-                elem.webkitRequestFullscreen();
-            } else if (elem.msRequestFullscreen) {
-                elem.msRequestFullscreen();
-            }
-        }
+      const del = document.createElement('button');
+      del.className = 'del-btn';
+      del.textContent = '×';
+      del.addEventListener('click', e => { e.stopPropagation(); deleteTask(t.id); });
 
-        // Prevent exit
-        document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement && document.getElementById('testScreen').classList.contains('active')) {
-                enterFullscreen();
-            }
-        });
+      div.appendChild(chk);
+      div.appendChild(lbl);
+      div.appendChild(meta);
+      div.appendChild(del);
+      div.addEventListener('click', () => openModal(t.id));
+      list.appendChild(div);
+    });
+  }
 
-        function loadQuestion() {
-            const q = questions[currentQuestion];
-            document.getElementById('q-num').textContent = currentQuestion + 1;
-            document.getElementById('total-q').textContent = questions.length;
-            document.getElementById('question').textContent = q.question;
-            
-            const optionsDiv = document.getElementById('options');
-            optionsDiv.innerHTML = '';
-            
-            q.options.forEach((opt, idx) => {
-                const optionDiv = document.createElement('div');
-                optionDiv.className = 'option';
-                optionDiv.onclick = () => selectAnswer(idx);
-                optionDiv.innerHTML = `<span class="option-letter">${String.fromCharCode(65 + idx)}</span>${opt}`;
-                optionsDiv.appendChild(optionDiv);
-            });
+  function addTask() {
+    const input = document.getElementById('taskInput');
+    const text = input.value.trim();
+    if (!text) return;
+    tasks.unshift({ id: uid(), text, notes: '', due: '', urgent: urgentNew, done: false, created: Date.now() });
+    input.value = '';
+    save(); renderTasks();
+  }
 
-            updateProgress();
-            selectedAnswer = -1;
-        }
+  function toggleDone(id) {
+    const t = tasks.find(x => x.id === id);
+    if (t) { t.done = !t.done; save(); renderTasks(); }
+  }
 
-        function selectAnswer(idx) {
-            selectedAnswer = idx;
-            document.querySelectorAll('.option').forEach((opt, i) => {
-                opt.classList.toggle('selected', i === idx);
-            });
-        }
+  function deleteTask(id) {
+    tasks = tasks.filter(x => x.id !== id);
+    save(); renderTasks();
+    if (document.getElementById('calView').classList.contains('open')) renderCal();
+  }
 
-        function nextQuestion() {
-            if (selectedAnswer === -1) {
-                alert('Please select an answer before continuing.');
-                return;
-            }
+  // urgent toggle (new task)
+  function syncToggle() {
+    const tog = document.getElementById('urgentToggle');
+    const lbl = document.getElementById('urgentLabel');
+    tog.classList.toggle('on', urgentNew);
+    lbl.style.color = urgentNew ? 'var(--red)' : '';
+  }
+  document.getElementById('urgentToggle').addEventListener('click', () => { urgentNew = !urgentNew; syncToggle(); });
 
-            // Store answer
-            studentAnswers.push({
-                question: questions[currentQuestion].question,
-                answer: questions[currentQuestion].options[selectedAnswer],
-                correct: selectedAnswer === questions[currentQuestion].correct
-            });
+  // filters
+  document.querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => {
+      filter = p.dataset.f;
+      document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
+      p.classList.add('active');
+      renderTasks();
+    });
+  });
 
-            // Save progress after each question
-            saveTestProgress();
+  document.getElementById('addBtn').addEventListener('click', addTask);
+  document.getElementById('taskInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
 
-            currentQuestion++;
-            if (currentQuestion >= questions.length) {
-                showResults();
-            } else {
-                loadQuestion();
-            }
-        }
+  // ── MODAL ──
+  function openModal(id) {
+    const t = tasks.find(x => x.id === id);
+    if (!t) return;
+    editingId = id;
+    editUrgentVal = t.urgent;
+    document.getElementById('modalTitle').textContent = t.text;
+    document.getElementById('editText').value = t.text;
+    document.getElementById('editNotes').value = t.notes || '';
+    document.getElementById('editDue').value = t.due || '';
+    document.getElementById('editUrgent').classList.toggle('on', t.urgent);
+    document.getElementById('taskModal').classList.add('open');
+  }
 
-        function updateProgress() {
-            const progress = ((currentQuestion + 1) / questions.length) * 100;
-            document.getElementById('progress').style.width = progress + '%';
-        }
+  function openModalForDate(dateStr) {
+    editingId = null;
+    editUrgentVal = false;
+    document.getElementById('modalTitle').textContent = 'new task';
+    document.getElementById('editText').value = '';
+    document.getElementById('editNotes').value = '';
+    document.getElementById('editDue').value = dateStr;
+    document.getElementById('editUrgent').classList.remove('on');
+    document.getElementById('taskModal').classList.add('open');
+  }
 
-        function startTimer() {
-            setInterval(() => {
-                timeLeft--;
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                document.getElementById('timer').textContent = 
-                    `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                
-                if (timeLeft <= 0) {
-                    showResults();
-                }
-            }, 1000);
-        }
+  function closeModal() {
+    document.getElementById('taskModal').classList.remove('open');
+    editingId = null;
+  }
 
-        function showResults() {
-            // Calculate score
-            const correctAnswers = studentAnswers.filter(a => a.correct).length;
-            const totalQuestions = studentAnswers.length;
-            const percentage = ((correctAnswers / totalQuestions) * 100).toFixed(1);
-            
-            // Save result
-            testResults.push({
-                username: currentStudent,
-                testType: currentTestType,
-                date: new Date().toLocaleString(),
-                answers: studentAnswers,
-                score: `${correctAnswers}/${totalQuestions} (${percentage}%)`
-            });
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.getElementById('taskModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('taskModal')) closeModal();
+  });
 
-            // Clear saved test
-            localStorage.removeItem('currentTest');
+  document.getElementById('editUrgent').addEventListener('click', () => {
+    editUrgentVal = !editUrgentVal;
+    document.getElementById('editUrgent').classList.toggle('on', editUrgentVal);
+  });
 
-            document.querySelector('.main-content').innerHTML = `
-                <div class="question-box" style="text-align: center;">
-                    <h2 style="color: #2c5aa0; margin-bottom: 20px;">Test Complete!</h2>
-                    <p style="font-size: 24px; color: #333; margin: 20px 0;">Score: ${correctAnswers}/${totalQuestions}</p>
-                    <p style="font-size: 20px; color: #2c5aa0; margin-bottom: 30px;">${percentage}%</p>
-                    <p style="font-size: 16px; color: #666;">Your results have been saved.</p>
-                    <button class="btn btn-next" onclick="location.reload()" style="margin-top: 20px;">Return to Home</button>
-                </div>
-            `;
-        }
+  document.getElementById('modalSave').addEventListener('click', () => {
+    const text = document.getElementById('editText').value.trim();
+    if (!text) return;
+    const notes = document.getElementById('editNotes').value.trim();
+    const due   = document.getElementById('editDue').value;
 
-        // Admin panel functions
-        function switchTab(tab) {
-            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.admin-content').forEach(c => c.classList.remove('active'));
-            
-            if (tab === 'questions') {
-                document.querySelectorAll('.admin-tab')[0].classList.add('active');
-                document.getElementById('questionsTab').classList.add('active');
-            } else if (tab === 'results') {
-                document.querySelectorAll('.admin-tab')[1].classList.add('active');
-                document.getElementById('resultsTab').classList.add('active');
-                displayResults();
-            } else if (tab === 'study') {
-                document.querySelectorAll('.admin-tab')[2].classList.add('active');
-                document.getElementById('studyTab').classList.add('active');
-                displayStudyMaterials();
-            }
-        }
+    if (editingId) {
+      const t = tasks.find(x => x.id === editingId);
+      if (t) { t.text = text; t.notes = notes; t.due = due; t.urgent = editUrgentVal; }
+    } else {
+      tasks.unshift({ id: uid(), text, notes, due, urgent: editUrgentVal, done: false, created: Date.now() });
+    }
 
-        function displayStudyMaterials() {
-            const container = document.getElementById('studyContent');
-            
-            let navHtml = '<div class="study-nav">';
-            Object.keys(studyMaterials).forEach(subject => {
-                navHtml += `<button class="study-btn" onclick="showStudySubject('${subject}')">${subject}</button>`;
-            });
-            navHtml += '</div><div id="studySubjectContent"></div>';
-            
-            container.innerHTML = navHtml;
-        }
+    save(); closeModal(); renderTasks();
+    if (document.getElementById('calView').classList.contains('open')) renderCal();
+  });
 
-        function showStudySubject(subject) {
-            document.querySelectorAll('.study-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            const content = document.getElementById('studySubjectContent');
-            const topics = studyMaterials[subject].topics;
-            
-            let html = '';
-            topics.forEach((topic, idx) => {
-                html += `
-                    <div class="study-section">
-                        <div class="study-title" onclick="toggleStudyContent(${idx})">
-                            ${topic.title}
-                            <span id="arrow-${idx}">▼</span>
-                        </div>
-                        <div class="study-content-inner" id="content-${idx}">
-                            ${topic.content}
-                        </div>
-                    </div>
-                `;
-            });
-            
-            content.innerHTML = html;
-        }
+  document.getElementById('modalDelete').addEventListener('click', () => {
+    if (editingId) deleteTask(editingId);
+    closeModal();
+  });
 
-        function toggleStudyContent(idx) {
-            const content = document.getElementById(`content-${idx}`);
-            const arrow = document.getElementById(`arrow-${idx}`);
-            
-            if (content.classList.contains('active')) {
-                content.classList.remove('active');
-                arrow.textContent = '▼';
-            } else {
-                content.classList.add('active');
-                arrow.textContent = '▲';
-            }
-        }
+  // ── CALENDAR ──
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS   = ['S','M','T','W','T','F','S'];
 
-        function displayResults() {
-            const tbody = document.getElementById('resultsBody');
-            tbody.innerHTML = '';
-            
-            if (testResults.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No results yet</td></tr>';
-                return;
-            }
+  function showCal() {
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('mainFooter').style.display = 'none';
+    document.getElementById('calView').classList.add('open');
+    renderCal();
+  }
 
-            testResults.forEach((result, idx) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${result.username}</td>
-                    <td>${result.testType}</td>
-                    <td>${result.date}</td>
-                    <td>${result.score || 'N/A'}</td>
-                    <td>${result.answers.length}</td>
-                    <td><button class="btn" style="padding: 5px 10px; font-size: 12px;" onclick='viewAnswers(${idx})'>View Details</button></td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
+  function hideCal() {
+    document.getElementById('app').style.display = '';
+    document.getElementById('mainFooter').style.display = '';
+    document.getElementById('calView').classList.remove('open');
+    renderTasks();
+  }
 
-        function viewAnswers(resultIndex) {
-            const result = testResults[resultIndex];
-            let msg = `Student: ${result.username}\nTest: ${result.testType}\nScore: ${result.score || 'N/A'}\n\n`;
-            msg += 'Detailed Answers:\n\n';
-            result.answers.forEach((a, i) => {
-                const status = a.correct ? '✓ Correct' : '✗ Incorrect';
-                msg += `Q${i+1}: ${a.question}\nAnswer: ${a.answer} ${status}\n\n`;
-            });
-            alert(msg);
-        }
+  function renderCal() {
+    const y = calDate.getFullYear(), m = calDate.getMonth();
+    document.getElementById('calMonth').textContent = `${MONTHS[m]} ${y}`;
 
-        function openAdmin() {
-            document.getElementById('overlay').classList.add('active');
-            document.getElementById('adminPanel').classList.add('active');
-            document.getElementById('questionsInput').value = JSON.stringify(questions, null, 2);
-            displayResults();
-        }
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
 
-        function closeAdmin() {
-            document.getElementById('overlay').classList.remove('active');
-            document.getElementById('adminPanel').classList.remove('active');
-        }
+    DAYS.forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'cal-day-name';
+      el.textContent = d;
+      grid.appendChild(el);
+    });
 
-        function saveQuestions() {
-            try {
-                const newQuestions = JSON.parse(document.getElementById('questionsInput').value);
-                questions = newQuestions;
-                currentQuestion = 0;
-                if (document.getElementById('testScreen').classList.contains('active')) {
-                    loadQuestion();
-                }
-                closeAdmin();
-                alert('Questions updated successfully!');
-            } catch (e) {
-                alert('Invalid JSON format! Please check your syntax.');
-            }
-        }
-    </script>
+    const firstDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m+1, 0).getDate();
+    const todayStr = today();
+
+    for (let i = 0; i < firstDay; i++) {
+      const el = document.createElement('div');
+      el.className = 'cal-day empty';
+      grid.appendChild(el);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dayTasks = tasks.filter(t => t.due === dateStr && !t.done);
+
+      const el = document.createElement('div');
+      el.className = `cal-day${dateStr === todayStr ? ' today' : ''}${dayTasks.length ? ' has-tasks' : ''}${selectedCalDay === dateStr ? ' selected' : ''}`;
+
+      const num = document.createElement('div');
+      num.className = 'day-num';
+      num.textContent = d;
+
+      const dots = document.createElement('div');
+      dots.className = 'day-dots';
+      dayTasks.slice(0, 4).forEach(t => {
+        const dot = document.createElement('div');
+        dot.className = `day-dot${t.urgent ? ' urgent' : ''}`;
+        dots.appendChild(dot);
+      });
+
+      el.appendChild(num);
+      el.appendChild(dots);
+      el.addEventListener('click', () => { selectedCalDay = dateStr; renderCal(); renderDayDetail(dateStr); });
+      grid.appendChild(el);
+    }
+
+    if (selectedCalDay) renderDayDetail(selectedCalDay);
+    else document.getElementById('calDayDetail').innerHTML = '';
+  }
+
+  function renderDayDetail(dateStr) {
+    const detail = document.getElementById('calDayDetail');
+    const dayTasks = tasks.filter(t => t.due === dateStr);
+    const d = new Date(dateStr + 'T00:00:00');
+    const label = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+
+    detail.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cal-day-detail';
+
+    const title = document.createElement('div');
+    title.className = 'cal-day-detail-title';
+    title.textContent = label;
+    wrap.appendChild(title);
+
+    if (!dayTasks.length) {
+      const emp = document.createElement('div');
+      emp.className = 'cal-empty';
+      emp.textContent = 'nothing scheduled';
+      wrap.appendChild(emp);
+    } else {
+      dayTasks.forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'cal-task-row';
+
+        const dot = document.createElement('div');
+        dot.className = `cal-task-dot${t.urgent ? ' urgent' : ''}`;
+
+        const name = document.createElement('div');
+        name.className = 'cal-task-name';
+        name.textContent = t.text;
+        if (t.done) { name.style.textDecoration = 'line-through'; name.style.opacity = '0.4'; }
+
+        row.appendChild(dot);
+        row.appendChild(name);
+        row.addEventListener('click', () => openModal(t.id));
+        wrap.appendChild(row);
+      });
+    }
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'cal-add-btn';
+    addBtn.textContent = '+ add task for this day';
+    addBtn.addEventListener('click', () => openModalForDate(dateStr));
+    wrap.appendChild(addBtn);
+
+    detail.appendChild(wrap);
+  }
+
+  document.getElementById('calBtn').addEventListener('click', showCal);
+  document.getElementById('backBtn').addEventListener('click', hideCal);
+  document.getElementById('prevMonth').addEventListener('click', () => { calDate.setMonth(calDate.getMonth()-1); selectedCalDay = null; renderCal(); });
+  document.getElementById('nextMonth').addEventListener('click', () => { calDate.setMonth(calDate.getMonth()+1); selectedCalDay = null; renderCal(); });
+
+  // ── Init ──
+  load();
+  renderTasks();
+</script>
 </body>
 </html>
