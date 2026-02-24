@@ -299,6 +299,8 @@
 <!-- FOOTER -->
 <div class="footer" id="mainFooter">
   <button class="secret-link" id="calBtn">calendar</button>
+  <span style="color:#1a1a1a;margin:0 10px;font-size:9px;">·</span>
+  <button class="secret-link" id="wellBtn">well</button>
 </div>
 
 <!-- TASK MODAL -->
@@ -658,6 +660,1196 @@
   // ── Init ──
   load();
   renderTasks();
+</script>
+<!-- WELL / GAMES VIEW -->
+<div id="wellView">
+  <div class="well-header">
+    <button class="back-link" id="wellBackBtn">← back</button>
+    <div class="well-title">well</div>
+  </div>
+
+  <!-- Game selector -->
+  <div id="gameMenu">
+    <button class="game-card" data-game="snake">
+      <div class="game-card-icon">◈</div>
+      <div class="game-card-name">snake</div>
+      <div class="game-card-desc">eat. grow. don't die.</div>
+    </button>
+    <button class="game-card" data-game="zombie">
+      <div class="game-card-icon">💀</div>
+      <div class="game-card-name">dead zone</div>
+      <div class="game-card-desc">first-person. shoot zombies. survive.</div>
+    </button>
+    <button class="game-card" data-game="reaction">
+      <div class="game-card-icon">⚡</div>
+      <div class="game-card-name">react</div>
+      <div class="game-card-desc">tap when it turns green.</div>
+    </button>
+  </div>
+
+  <!-- ── SNAKE ── -->
+  <div id="snakeGame" class="game-area" style="display:none">
+    <div class="game-top-bar">
+      <button class="game-back-btn" data-back="snake">← games</button>
+      <div class="game-score-display">score <span id="snakeScore">0</span></div>
+      <div class="game-score-display">best <span id="snakeBest">0</span></div>
+    </div>
+    <canvas id="snakeCanvas"></canvas>
+    <div id="snakeOverlay" class="game-overlay">
+      <div class="overlay-text" id="snakeOverlayText">snake</div>
+      <button class="overlay-btn" id="snakeStartBtn">start</button>
+    </div>
+    <div class="snake-controls">
+      <div></div><button class="dpad" id="dUp">▲</button><div></div>
+      <button class="dpad" id="dLeft">◀</button>
+      <button class="dpad" id="dDown">▼</button>
+      <button class="dpad" id="dRight">▶</button>
+    </div>
+  </div>
+
+  <!-- ── ZOMBIE SHOOTER ── -->
+  <div id="zombieGame" class="game-area" style="display:none">
+    <div class="game-top-bar">
+      <button class="game-back-btn" data-back="zombie">← games</button>
+      <div class="game-score-display">kills <span id="zKills">0</span></div>
+      <div class="game-score-display">wave <span id="zWave">1</span></div>
+      <div class="game-score-display">best <span id="zBest">0</span></div>
+    </div>
+    <div id="zombieWrap" style="position:relative;width:100%">
+      <canvas id="zombieCanvas" style="display:block;width:100%;border-radius:8px;border:1px solid var(--border);cursor:crosshair"></canvas>
+      <div id="zombieHUD">
+        <div id="zHealthBar"><div id="zHealthFill"></div></div>
+        <div id="zAmmoDisplay"></div>
+      </div>
+      <div id="zombieOverlay" class="game-overlay">
+        <div class="overlay-text" id="zOverlayTitle">dead zone</div>
+        <div id="zOverlaySub" style="font-family:'DM Mono',monospace;font-size:11px;color:#666;letter-spacing:1px;text-transform:uppercase;text-align:center;padding:0 20px"></div>
+        <button class="overlay-btn" id="zStartBtn">start</button>
+      </div>
+    </div>
+    <div class="zombie-controls">
+      <div class="zctrl-row">
+        <button class="zctrl" id="zForward">▲</button>
+      </div>
+      <div class="zctrl-row">
+        <button class="zctrl" id="zLeft">◀</button>
+        <button class="zctrl zctrl-fire" id="zFire">🔫</button>
+        <button class="zctrl" id="zRight">▶</button>
+      </div>
+      <div class="zctrl-row">
+        <button class="zctrl" id="zBack">▼</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REACTION ── -->
+  <div id="reactionGame" class="game-area" style="display:none">
+    <div class="game-top-bar">
+      <button class="game-back-btn" data-back="reaction">← games</button>
+      <div class="game-score-display">avg <span id="reactAvg">—</span></div>
+      <div class="game-score-display">best <span id="reactBest">—</span></div>
+    </div>
+    <div id="reactionPad">
+      <div id="reactionMsg">tap to start</div>
+      <div id="reactionTime"></div>
+    </div>
+    <div id="reactionHistory"></div>
+  </div>
+</div>
+
+<style>
+  /* ── WELL VIEW ── */
+  #wellView {
+    display: none;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 32px 16px 80px;
+    min-height: 100vh;
+  }
+  #wellView.open { display: block; }
+
+  .well-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+
+  .well-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Game cards */
+  #gameMenu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .game-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    text-align: left;
+    width: 100%;
+    animation: slideIn 0.2s ease both;
+  }
+  .game-card:nth-child(1) { animation-delay: 0.05s; }
+  .game-card:nth-child(2) { animation-delay: 0.1s; }
+  .game-card:nth-child(3) { animation-delay: 0.15s; }
+
+  .game-card:hover { border-color: var(--border2); background: var(--surface2); }
+
+  .game-card-icon {
+    font-size: 22px;
+    width: 36px;
+    text-align: center;
+    opacity: 0.6;
+    flex-shrink: 0;
+  }
+
+  .game-card-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+
+  .game-card-desc {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Game area */
+  .game-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .game-top-bar {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .game-back-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s;
+    padding: 0;
+    margin-right: auto;
+  }
+  .game-back-btn:hover { color: var(--muted); }
+
+  .game-score-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .game-score-display span {
+    color: var(--text);
+    margin-left: 4px;
+  }
+
+  /* Game overlay */
+  .game-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(14,14,14,0.88);
+    border-radius: 8px;
+    gap: 16px;
+    z-index: 10;
+    backdrop-filter: blur(3px);
+  }
+
+  .overlay-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .overlay-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: var(--text);
+    color: var(--bg);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 28px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .overlay-btn:hover { background: #bbb; }
+
+  /* ── SNAKE ── */
+  #snakeCanvas {
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  #snakeGame {
+    position: relative;
+    width: 100%;
+  }
+
+  .snake-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 48px);
+    grid-template-rows: repeat(2, 48px);
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  .dpad {
+    width: 48px; height: 48px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.1s;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dpad:active { background: var(--border2); color: var(--text); }
+
+  /* ── ZOMBIE SHOOTER ── */
+  #zombieGame { width: 100%; }
+  #zombieWrap { position: relative; width: 100%; }
+
+  #zombieHUD {
+    position: absolute;
+    bottom: 8px; left: 8px; right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+  }
+
+  #zHealthBar {
+    height: 6px;
+    flex: 1;
+    background: #222;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  #zHealthFill {
+    height: 100%;
+    width: 100%;
+    background: #e8000d;
+    border-radius: 3px;
+    transition: width 0.2s;
+  }
+
+  #zAmmoDisplay {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #aaa;
+    letter-spacing: 1px;
+  }
+
+  .zombie-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin-top: 10px;
+  }
+
+  .zctrl-row { display: flex; gap: 4px; justify-content: center; }
+
+  .zctrl {
+    width: 54px; height: 54px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.1s;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .zctrl:active { background: var(--border2); color: var(--text); transform: scale(0.93); }
+  .zctrl-fire { background: #1a0000; border-color: #440000; font-size: 20px; width: 64px; }
+  .zctrl-fire:active { background: #330000; }
+
+  /* ── REACTION ── */
+  #reactionGame { width: 100%; }
+
+  #reactionPad {
+    width: 100%;
+    height: 220px;
+    border-radius: 12px;
+    background: #1a1a1a;
+    border: 2px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+    gap: 10px;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  #reactionPad.waiting { background: #1a1a00; border-color: #444400; }
+  #reactionPad.go      { background: #001a00; border-color: #004400; }
+  #reactionPad.early   { background: #1a0000; border-color: var(--red); }
+  #reactionPad.done    { background: #001a00; border-color: #004400; }
+
+  #reactionMsg {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    transition: color 0.1s;
+  }
+  #reactionPad.go #reactionMsg      { color: #66ff66; font-size: 16px; }
+  #reactionPad.waiting #reactionMsg { color: #888800; }
+  #reactionPad.early #reactionMsg   { color: var(--red); }
+  #reactionPad.done #reactionMsg    { color: #66ff66; }
+
+  #reactionTime {
+    font-family: 'DM Mono', monospace;
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  #reactionHistory {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .react-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    background: var(--surface);
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+  }
+
+  .react-row .r-num { color: var(--muted); }
+  .react-row .r-time { color: var(--text); }
+  .react-row .r-bar {
+    height: 3px;
+    background: var(--border2);
+    border-radius: 2px;
+    flex: 1;
+    margin: 0 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .react-row .r-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: #66ff66;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+  .react-row.slow .r-fill { background: #f5a623; }
+  .react-row.very-slow .r-fill { background: var(--red); }
+</style>
+
+<script>
+// ── WELL / GAMES ──
+
+function showWell() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('mainFooter').style.display = 'none';
+  document.getElementById('wellView').classList.add('open');
+  showGameMenu();
+}
+
+function hideWell() {
+  stopSnake();
+  stopZombie();
+  stopReaction();
+  document.getElementById('wellView').classList.remove('open');
+  document.getElementById('app').style.display = '';
+  document.getElementById('mainFooter').style.display = '';
+}
+
+function showGameMenu() {
+  document.getElementById('gameMenu').style.display = 'flex';
+  document.getElementById('snakeGame').style.display = 'none';
+  document.getElementById('zombieGame').style.display = 'none';
+  document.getElementById('reactionGame').style.display = 'none';
+}
+
+document.getElementById('wellBtn').addEventListener('click', showWell);
+document.getElementById('wellBackBtn').addEventListener('click', hideWell);
+
+document.querySelectorAll('.game-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const g = card.dataset.game;
+    document.getElementById('gameMenu').style.display = 'none';
+    if (g === 'snake') initSnakeView();
+    if (g === 'zombie') initZombieView();
+    if (g === 'reaction') initReactionView();
+  });
+});
+
+document.querySelectorAll('.game-back-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    stopSnake();
+    stopZombie();
+    stopReaction();
+    showGameMenu();
+  });
+});
+
+// ════════════════════════════════
+// ── SNAKE ──
+// ════════════════════════════════
+let snakeLoop = null, snakeDir = {x:1,y:0}, snakeNextDir = {x:1,y:0};
+let snakeBody = [], snakeFood = {x:5,y:5}, snakeRunning = false;
+const SNAKE_COLS = 20, SNAKE_ROWS = 20;
+
+function initSnakeView() {
+  document.getElementById('snakeGame').style.display = 'flex';
+  const canvas = document.getElementById('snakeCanvas');
+  const size = Math.min(window.innerWidth - 32, 340);
+  canvas.width = size; canvas.height = size;
+  const best = localStorage.getItem('snake_best') || 0;
+  document.getElementById('snakeBest').textContent = best;
+  document.getElementById('snakeScore').textContent = 0;
+  document.getElementById('snakeOverlay').style.display = 'flex';
+  document.getElementById('snakeOverlayText').textContent = 'snake';
+  drawSnakeIdle();
+}
+
+function drawSnakeIdle() {
+  const canvas = document.getElementById('snakeCanvas');
+  const ctx = canvas.getContext('2d');
+  const cw = canvas.width / SNAKE_COLS;
+  ctx.fillStyle = '#0e0e0e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // draw a demo snake
+  [[8,10],[9,10],[10,10],[11,10],[12,10]].forEach(([x,y],i) => {
+    ctx.fillStyle = i === 0 ? '#e8e8e8' : `rgba(232,232,232,${0.4 - i*0.06})`;
+    ctx.beginPath();
+    ctx.roundRect(x*cw+1, y*cw+1, cw-2, cw-2, 3);
+    ctx.fill();
+  });
+}
+
+function startSnake() {
+  snakeBody = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+  snakeDir = {x:1,y:0}; snakeNextDir = {x:1,y:0};
+  snakeFood = randSnakeFood();
+  snakeRunning = true;
+  document.getElementById('snakeOverlay').style.display = 'none';
+  document.getElementById('snakeScore').textContent = 0;
+  if (snakeLoop) clearInterval(snakeLoop);
+  snakeLoop = setInterval(stepSnake, 130);
+}
+
+function stopSnake() {
+  snakeRunning = false;
+  if (snakeLoop) { clearInterval(snakeLoop); snakeLoop = null; }
+}
+
+function randSnakeFood() {
+  let pos;
+  do { pos = { x: Math.floor(Math.random()*SNAKE_COLS), y: Math.floor(Math.random()*SNAKE_ROWS) }; }
+  while (snakeBody.some(s => s.x===pos.x && s.y===pos.y));
+  return pos;
+}
+
+function stepSnake() {
+  snakeDir = snakeNextDir;
+  const head = { x: snakeBody[0].x + snakeDir.x, y: snakeBody[0].y + snakeDir.y };
+  // wall collision
+  if (head.x < 0 || head.x >= SNAKE_COLS || head.y < 0 || head.y >= SNAKE_ROWS) return gameOverSnake();
+  // self collision
+  if (snakeBody.some(s => s.x===head.x && s.y===head.y)) return gameOverSnake();
+
+  snakeBody.unshift(head);
+  if (head.x === snakeFood.x && head.y === snakeFood.y) {
+    const score = snakeBody.length - 3;
+    document.getElementById('snakeScore').textContent = score;
+    const best = parseInt(localStorage.getItem('snake_best') || 0);
+    if (score > best) { localStorage.setItem('snake_best', score); document.getElementById('snakeBest').textContent = score; }
+    snakeFood = randSnakeFood();
+  } else {
+    snakeBody.pop();
+  }
+  drawSnake();
+}
+
+function drawSnake() {
+  const canvas = document.getElementById('snakeCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cw = canvas.width / SNAKE_COLS;
+  ctx.fillStyle = '#0e0e0e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // food
+  ctx.fillStyle = '#e8000d';
+  ctx.beginPath();
+  ctx.arc(snakeFood.x*cw + cw/2, snakeFood.y*cw + cw/2, cw/2 - 2, 0, Math.PI*2);
+  ctx.fill();
+  // food glow
+  ctx.shadowColor = '#e8000d'; ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // snake
+  snakeBody.forEach((s, i) => {
+    const alpha = i === 0 ? 1 : Math.max(0.15, 1 - i * 0.04);
+    ctx.fillStyle = i === 0 ? '#f0f0f0' : `rgba(180,180,180,${alpha})`;
+    ctx.beginPath();
+    ctx.roundRect(s.x*cw+1, s.y*cw+1, cw-2, cw-2, i===0 ? 4 : 2);
+    ctx.fill();
+  });
+}
+
+function gameOverSnake() {
+  stopSnake();
+  document.getElementById('snakeOverlayText').textContent = 'game over';
+  document.getElementById('snakeOverlay').style.display = 'flex';
+}
+
+document.getElementById('snakeStartBtn').addEventListener('click', startSnake);
+
+// keyboard
+document.addEventListener('keydown', e => {
+  if (!snakeRunning) return;
+  const map = { ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0} };
+  const d = map[e.key];
+  if (d && !(d.x===-snakeDir.x && d.y===-snakeDir.y)) { snakeNextDir=d; e.preventDefault(); }
+});
+
+// d-pad
+const dpadMap = { dUp:{x:0,y:-1}, dDown:{x:0,y:1}, dLeft:{x:-1,y:0}, dRight:{x:1,y:0} };
+Object.entries(dpadMap).forEach(([id, d]) => {
+  document.getElementById(id).addEventListener('click', () => {
+    if (snakeRunning && !(d.x===-snakeDir.x && d.y===-snakeDir.y)) snakeNextDir = d;
+  });
+});
+
+// ════════════════════════════════
+// ── ZOMBIE RAYCASTER ──
+// ════════════════════════════════
+const Z = {
+  canvas: null, ctx: null,
+  W: 320, H: 200,
+  running: false, loop: null,
+  // player
+  px: 3.5, py: 3.5, pAngle: 0,
+  pHealth: 100, pMaxHealth: 100,
+  pAmmo: 30, pMaxAmmo: 30,
+  // game state
+  kills: 0, wave: 1, waveKills: 0, waveSize: 3,
+  zombies: [], bullets: [], particles: [],
+  // controls
+  keys: {},
+  mobileKeys: { forward:false, back:false, left:false, right:false, fire:false },
+  lastShot: 0, reloading: false, reloadTimer: null,
+  shootAnim: 0,
+  flashTimer: 0,
+
+  // Map: 1=wall, 0=floor
+  map: [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,0,0,0,0,0,0,0,1,1,0,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1],
+    [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
+    [1,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,0,1,1,0,0,0,0,0,0,0,1,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  ],
+
+  isWall(x, y) {
+    const mx = Math.floor(x), my = Math.floor(y);
+    if (mx < 0 || my < 0 || mx >= 16 || my >= 16) return true;
+    return this.map[my][mx] === 1;
+  },
+
+  spawnZombies() {
+    const spawnPoints = [
+      {x:1.5,y:1.5},{x:14.5,y:1.5},{x:1.5,y:14.5},{x:14.5,y:14.5},
+      {x:7.5,y:1.5},{x:1.5,y:7.5},{x:14.5,y:7.5},{x:7.5,y:14.5}
+    ];
+    for (let i = 0; i < this.waveSize; i++) {
+      const sp = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
+      this.zombies.push({
+        x: sp.x + (Math.random()-0.5)*0.5,
+        y: sp.y + (Math.random()-0.5)*0.5,
+        hp: 2 + this.wave,
+        maxHp: 2 + this.wave,
+        speed: 0.018 + this.wave * 0.003,
+        angle: Math.random() * Math.PI * 2,
+        state: 'walk', // walk, attack, dead
+        deadTimer: 0,
+        attackTimer: 0,
+        size: 0.35,
+        color: `hsl(${100 + Math.random()*60}, 60%, ${20 + Math.random()*15}%)`,
+      });
+    }
+  },
+
+  raycast(angle) {
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    let dist = 0;
+    for (let step = 0; step < 200; step++) {
+      dist = step * 0.05;
+      const tx = this.px + cos * dist;
+      const ty = this.py + sin * dist;
+      if (this.isWall(tx, ty)) {
+        // determine wall shade based on x/y hit
+        const mx = Math.floor(tx), my = Math.floor(ty);
+        const fx = tx - mx, fy = ty - my;
+        const side = (fx < 0.02 || fx > 0.98) ? 'x' : 'y';
+        return { dist, side };
+      }
+    }
+    return { dist: 200, side: 'y' };
+  },
+
+  render() {
+    const ctx = this.ctx;
+    const W = this.W, H = this.H;
+    // sky
+    ctx.fillStyle = '#0a0008';
+    ctx.fillRect(0, 0, W, H/2);
+    // floor
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(0, H/2, W, H/2);
+
+    // raycasting walls
+    const FOV = Math.PI / 2.5;
+    for (let col = 0; col < W; col++) {
+      const rayAngle = this.pAngle - FOV/2 + (col/W) * FOV;
+      const { dist, side } = this.raycast(rayAngle);
+      const corr = dist * Math.cos(rayAngle - this.pAngle);
+      const wallH = Math.min(H, H / corr);
+      const top = (H - wallH) / 2;
+      const bright = Math.max(30, 220 - dist * 18);
+      const r = side === 'x' ? Math.floor(bright * 0.4) : Math.floor(bright * 0.25);
+      const g = side === 'x' ? Math.floor(bright * 0.55) : Math.floor(bright * 0.35);
+      const b = side === 'x' ? Math.floor(bright * 0.45) : Math.floor(bright * 0.28);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(col, top, 1, wallH);
+    }
+
+    // Z-buffer
+    const zbuf = [];
+    for (let col = 0; col < W; col++) {
+      const rayAngle = this.pAngle - FOV/2 + (col/W) * FOV;
+      const { dist } = this.raycast(rayAngle);
+      zbuf.push(dist * Math.cos(rayAngle - this.pAngle));
+    }
+
+    // sort zombies by distance (far first)
+    const sorted = [...this.zombies].sort((a,b) => {
+      const da = Math.hypot(a.x - this.px, a.y - this.py);
+      const db = Math.hypot(b.x - this.px, b.y - this.py);
+      return db - da;
+    });
+
+    sorted.forEach(z => {
+      if (z.state === 'dead') return;
+      const dx = z.x - this.px, dy = z.y - this.py;
+      const dist = Math.hypot(dx, dy);
+      let spriteAngle = Math.atan2(dy, dx) - this.pAngle;
+      while (spriteAngle > Math.PI) spriteAngle -= Math.PI * 2;
+      while (spriteAngle < -Math.PI) spriteAngle += Math.PI * 2;
+
+      if (Math.abs(spriteAngle) > FOV / 1.5) return;
+
+      const spriteH = Math.min(H * 1.4, H / dist);
+      const spriteW = spriteH * 0.6;
+      const screenX = (0.5 + spriteAngle / FOV) * W;
+      const startX = Math.floor(screenX - spriteW / 2);
+      const startY = Math.floor((H - spriteH) / 2);
+
+      const bright = Math.max(20, 180 - dist * 20);
+      // health color tint
+      const hpRatio = z.hp / z.maxHp;
+      const rr = Math.floor(bright * (0.3 + (1-hpRatio)*0.5));
+      const gg = Math.floor(bright * 0.5 * hpRatio);
+      const bb = Math.floor(bright * 0.2);
+
+      for (let col = Math.max(0, startX); col < Math.min(W, startX + spriteW); col++) {
+        if (dist < zbuf[col]) {
+          const texX = (col - startX) / spriteW;
+          // body
+          ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
+          ctx.fillRect(col, startY + spriteH * 0.1, 1, spriteH * 0.75);
+          // head (brighter blob)
+          ctx.fillStyle = `rgb(${Math.floor(rr*1.3)},${Math.floor(gg*1.1)},${bb})`;
+          ctx.fillRect(col, startY, 1, spriteH * 0.22);
+          // eyes if close enough
+          if (dist < 5 && texX > 0.2 && texX < 0.8) {
+            const eyeY = startY + spriteH * 0.05;
+            if ((texX > 0.25 && texX < 0.38) || (texX > 0.62 && texX < 0.75)) {
+              ctx.fillStyle = '#ff2200';
+              ctx.fillRect(col, eyeY, 1, spriteH * 0.07);
+            }
+          }
+        }
+      }
+    });
+
+    // particles
+    this.particles.forEach(p => {
+      const alpha = p.life / p.maxLife;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
+
+    // crosshair
+    const cx = W/2, cy = H/2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx-8,cy); ctx.lineTo(cx+8,cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+8); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.stroke();
+
+    // muzzle flash
+    if (this.shootAnim > 0) {
+      ctx.fillStyle = `rgba(255,200,50,${this.shootAnim * 0.8})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy + H*0.25, 12 * this.shootAnim, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    // gun sprite (simple pixel gun)
+    this.drawGun(ctx, W, H);
+
+    // damage flash
+    if (this.flashTimer > 0) {
+      ctx.fillStyle = `rgba(232,0,13,${this.flashTimer * 0.4})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+  },
+
+  drawGun(ctx, W, H) {
+    const bob = this.shootAnim > 0 ? -8 * this.shootAnim : 0;
+    const gx = W/2 - 12, gy = H - 55 + bob;
+    // barrel
+    ctx.fillStyle = '#555';
+    ctx.fillRect(gx + 8, gy, 8, 30);
+    // body
+    ctx.fillStyle = '#444';
+    ctx.fillRect(gx + 2, gy + 20, 22, 18);
+    // grip
+    ctx.fillStyle = '#333';
+    ctx.fillRect(gx + 8, gy + 35, 8, 14);
+    // highlight
+    ctx.fillStyle = '#777';
+    ctx.fillRect(gx + 9, gy + 1, 3, 25);
+    if (this.reloading) {
+      ctx.fillStyle = 'rgba(255,200,0,0.6)';
+      ctx.fillRect(gx, gy - 8, 28, 4);
+    }
+  },
+
+  shoot() {
+    const now = Date.now();
+    if (this.pAmmo <= 0) { this.startReload(); return; }
+    if (now - this.lastShot < 250) return;
+    if (this.reloading) return;
+    this.lastShot = now;
+    this.pAmmo--;
+    this.shootAnim = 1;
+    this.updateAmmoHUD();
+
+    // check hit
+    const FOV = Math.PI / 2.5;
+    let hit = false;
+    this.zombies.forEach(z => {
+      if (z.state === 'dead') return;
+      const dx = z.x - this.px, dy = z.y - this.py;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 15) return;
+      let spriteAngle = Math.atan2(dy, dx) - this.pAngle;
+      while (spriteAngle > Math.PI) spriteAngle -= Math.PI * 2;
+      while (spriteAngle < -Math.PI) spriteAngle += Math.PI * 2;
+      const hitRadius = 0.3 / dist;
+      if (Math.abs(spriteAngle) < hitRadius + 0.1) {
+        z.hp -= 1;
+        this.spawnBlood(z.x, z.y, dist);
+        if (z.hp <= 0) {
+          z.state = 'dead';
+          this.kills++;
+          this.waveKills++;
+          document.getElementById('zKills').textContent = this.kills;
+          this.saveZombieScore();
+          if (this.waveKills >= this.waveSize) this.nextWave();
+        }
+        hit = true;
+      }
+    });
+
+    // muzzle particles
+    for (let i = 0; i < 6; i++) {
+      this.particles.push({
+        x: this.W/2 + (Math.random()-0.5)*20,
+        y: this.H - 40 + (Math.random()-0.5)*10,
+        vx: (Math.random()-0.5)*3, vy: -Math.random()*4,
+        life: 0.5, maxLife: 0.5,
+        color: `hsl(${30+Math.random()*30},100%,60%)`,
+        size: 2 + Math.random()*3
+      });
+    }
+  },
+
+  startReload() {
+    if (this.reloading || this.pAmmo === this.pMaxAmmo) return;
+    this.reloading = true;
+    this.updateAmmoHUD();
+    this.reloadTimer = setTimeout(() => {
+      this.pAmmo = this.pMaxAmmo;
+      this.reloading = false;
+      this.updateAmmoHUD();
+    }, 1800);
+  },
+
+  updateAmmoHUD() {
+    const el = document.getElementById('zAmmoDisplay');
+    if (!el) return;
+    if (this.reloading) { el.textContent = 'reloading...'; return; }
+    let s = '';
+    for (let i = 0; i < this.pMaxAmmo; i++) s += i < this.pAmmo ? '|' : '·';
+    el.textContent = s;
+  },
+
+  spawnBlood(wx, wy, dist) {
+    const spriteAngle = Math.atan2(wy - this.py, wx - this.px) - this.pAngle;
+    const FOV = Math.PI / 2.5;
+    const sx = (0.5 + spriteAngle / FOV) * this.W;
+    const sy = this.H / 2 + (Math.random()-0.5) * 30;
+    for (let i = 0; i < 8; i++) {
+      this.particles.push({
+        x: sx + (Math.random()-0.5)*20,
+        y: sy + (Math.random()-0.5)*20,
+        vx: (Math.random()-0.5)*2, vy: Math.random()*2,
+        life: 0.6, maxLife: 0.6,
+        color: `hsl(0,90%,${20+Math.random()*20}%)`,
+        size: 2 + Math.random()*4
+      });
+    }
+  },
+
+  nextWave() {
+    this.wave++;
+    this.waveKills = 0;
+    this.waveSize = this.wave * 3 + 2;
+    this.pAmmo = this.pMaxAmmo;
+    this.updateAmmoHUD();
+    document.getElementById('zWave').textContent = this.wave;
+    setTimeout(() => this.spawnZombies(), 1200);
+  },
+
+  saveZombieScore() {
+    const best = parseInt(localStorage.getItem('zombie_best') || 0);
+    if (this.kills > best) {
+      localStorage.setItem('zombie_best', this.kills);
+      document.getElementById('zBest').textContent = this.kills;
+    }
+    localStorage.setItem('zombie_wave', this.wave);
+  },
+
+  update(dt) {
+    // movement
+    const speed = 0.06;
+    const turnSpeed = 0.055;
+    const fwd = this.keys['ArrowUp'] || this.keys['w'] || this.mobileKeys.forward;
+    const bwd = this.keys['ArrowDown'] || this.keys['s'] || this.mobileKeys.back;
+    const lft = this.keys['ArrowLeft'] || this.keys['a'] || this.mobileKeys.left;
+    const rgt = this.keys['ArrowRight'] || this.keys['d'] || this.mobileKeys.right;
+
+    if (lft) this.pAngle -= turnSpeed;
+    if (rgt) this.pAngle += turnSpeed;
+
+    let nx = this.px, ny = this.py;
+    if (fwd) { nx += Math.cos(this.pAngle)*speed; ny += Math.sin(this.pAngle)*speed; }
+    if (bwd) { nx -= Math.cos(this.pAngle)*speed*0.6; ny -= Math.sin(this.pAngle)*speed*0.6; }
+
+    if (!this.isWall(nx + Math.cos(this.pAngle)*0.3, this.py)) this.px = nx;
+    if (!this.isWall(this.px, ny + Math.sin(this.pAngle)*0.3)) this.py = ny;
+
+    // auto fire on mobile hold
+    if (this.mobileKeys.fire) this.shoot();
+
+    // shoot anim decay
+    if (this.shootAnim > 0) this.shootAnim = Math.max(0, this.shootAnim - 0.15);
+    if (this.flashTimer > 0) this.flashTimer = Math.max(0, this.flashTimer - 0.08);
+
+    // update zombies
+    this.zombies.forEach(z => {
+      if (z.state === 'dead') return;
+      const dx = this.px - z.x, dy = this.py - z.y;
+      const dist = Math.hypot(dx, dy);
+      z.angle = Math.atan2(dy, dx);
+      const moveX = Math.cos(z.angle) * z.speed;
+      const moveY = Math.sin(z.angle) * z.speed;
+      if (!this.isWall(z.x + moveX + Math.sign(moveX)*0.2, z.y)) z.x += moveX;
+      if (!this.isWall(z.x, z.y + moveY + Math.sign(moveY)*0.2)) z.y += moveY;
+
+      // attack player
+      if (dist < 0.7) {
+        z.attackTimer++;
+        if (z.attackTimer % 40 === 0) {
+          this.pHealth = Math.max(0, this.pHealth - (3 + this.wave));
+          this.flashTimer = 1;
+          this.updateHealthHUD();
+          if (this.pHealth <= 0) this.gameOver();
+        }
+      } else { z.attackTimer = 0; }
+    });
+
+    // update particles
+    this.particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      p.vy += 0.1;
+      p.life -= 0.04;
+    });
+    this.particles = this.particles.filter(p => p.life > 0);
+  },
+
+  updateHealthHUD() {
+    const fill = document.getElementById('zHealthFill');
+    if (fill) fill.style.width = Math.max(0, (this.pHealth / this.pMaxHealth) * 100) + '%';
+  },
+
+  gameOver() {
+    this.running = false;
+    cancelAnimationFrame(this.loop);
+    this.saveZombieScore();
+    const el = document.getElementById('zOverlayTitle');
+    const sub = document.getElementById('zOverlaySub');
+    if (el) el.textContent = 'you died';
+    if (sub) sub.textContent = `${this.kills} kills · wave ${this.wave}`;
+    const overlay = document.getElementById('zombieOverlay');
+    if (overlay) overlay.style.display = 'flex';
+  },
+
+  gameLoop(ts) {
+    if (!this.running) return;
+    this.update();
+    this.render();
+    this.loop = requestAnimationFrame(() => this.gameLoop());
+  },
+
+  start() {
+    this.px = 3.5; this.py = 3.5; this.pAngle = 0;
+    this.pHealth = 100; this.pAmmo = 30;
+    this.kills = 0; this.wave = 1; this.waveKills = 0; this.waveSize = 3;
+    this.zombies = []; this.bullets = []; this.particles = [];
+    this.reloading = false; this.shootAnim = 0; this.flashTimer = 0;
+    if (this.reloadTimer) clearTimeout(this.reloadTimer);
+    document.getElementById('zKills').textContent = 0;
+    document.getElementById('zWave').textContent = 1;
+    document.getElementById('zOverlayTitle').textContent = 'dead zone';
+    document.getElementById('zOverlaySub').textContent = 'wasd / arrows to move · click to shoot';
+    document.getElementById('zombieOverlay').style.display = 'none';
+    this.updateHealthHUD();
+    this.updateAmmoHUD();
+    this.spawnZombies();
+    this.running = true;
+    const loop = () => { if (!this.running) return; this.update(); this.render(); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+};
+
+function initZombieView() {
+  document.getElementById('zombieGame').style.display = 'flex';
+  Z.canvas = document.getElementById('zombieCanvas');
+  const w = Math.min(window.innerWidth - 32, 440);
+  Z.W = w; Z.H = Math.floor(w * 0.65);
+  Z.canvas.width = Z.W; Z.canvas.height = Z.H;
+  Z.ctx = Z.canvas.getContext('2d');
+  const best = localStorage.getItem('zombie_best') || 0;
+  document.getElementById('zBest').textContent = best;
+  document.getElementById('zombieOverlay').style.display = 'flex';
+  // draw a dark idle screen
+  Z.ctx.fillStyle = '#0a0008';
+  Z.ctx.fillRect(0, 0, Z.W, Z.H);
+}
+
+function stopZombie() {
+  Z.running = false;
+  if (Z.reloadTimer) clearTimeout(Z.reloadTimer);
+}
+
+// keyboard
+document.addEventListener('keydown', e => {
+  Z.keys[e.key] = true;
+  if (Z.running && e.key === ' ') { Z.shoot(); e.preventDefault(); }
+  if (Z.running && e.key === 'r') Z.startReload();
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) && Z.running) e.preventDefault();
+});
+document.addEventListener('keyup', e => { Z.keys[e.key] = false; });
+
+// canvas click to shoot
+document.getElementById('zombieCanvas').addEventListener('click', () => { if (Z.running) Z.shoot(); });
+
+// start button
+document.getElementById('zStartBtn').addEventListener('click', () => Z.start());
+
+// mobile controls
+const mobileCtrlMap = {
+  zForward: 'forward', zBack: 'back', zLeft: 'left', zRight: 'right'
+};
+Object.entries(mobileCtrlMap).forEach(([id, key]) => {
+  const btn = document.getElementById(id);
+  btn.addEventListener('touchstart', e => { Z.mobileKeys[key] = true; e.preventDefault(); }, {passive:false});
+  btn.addEventListener('touchend', () => { Z.mobileKeys[key] = false; });
+  btn.addEventListener('mousedown', () => Z.mobileKeys[key] = true);
+  btn.addEventListener('mouseup', () => Z.mobileKeys[key] = false);
+});
+
+// fire button hold
+const fireBtn = document.getElementById('zFire');
+fireBtn.addEventListener('touchstart', e => { Z.mobileKeys.fire = true; e.preventDefault(); }, {passive:false});
+fireBtn.addEventListener('touchend', () => { Z.mobileKeys.fire = false; if (Z.running) Z.shoot(); });
+fireBtn.addEventListener('mousedown', () => { if (Z.running) Z.shoot(); });
+
+// ════════════════════════════════
+// ── REACTION TIME ──
+// ════════════════════════════════
+let reactState = 'idle', reactTimer = null, reactStart = 0;
+let reactTimes = [];
+
+function initReactionView() {
+  document.getElementById('reactionGame').style.display = 'flex';
+  reactState = 'idle';
+  reactTimes = [];
+  const best = localStorage.getItem('react_best');
+  document.getElementById('reactBest').textContent = best ? best + 'ms' : '—';
+  document.getElementById('reactAvg').textContent = '—';
+  document.getElementById('reactionTime').textContent = '';
+  document.getElementById('reactionMsg').textContent = 'tap to start';
+  document.getElementById('reactionPad').className = '';
+  document.getElementById('reactionHistory').innerHTML = '';
+}
+
+function stopReaction() {
+  if (reactTimer) { clearTimeout(reactTimer); reactTimer = null; }
+  reactState = 'idle';
+}
+
+document.getElementById('reactionPad').addEventListener('click', () => {
+  if (reactState === 'idle' || reactState === 'done') {
+    // start waiting
+    reactState = 'waiting';
+    const pad = document.getElementById('reactionPad');
+    pad.className = 'waiting';
+    document.getElementById('reactionMsg').textContent = 'wait for green...';
+    document.getElementById('reactionTime').textContent = '';
+    const delay = 1500 + Math.random() * 3000;
+    reactTimer = setTimeout(() => {
+      pad.className = 'go';
+      document.getElementById('reactionMsg').textContent = 'tap now!';
+      reactStart = performance.now();
+      reactState = 'go';
+    }, delay);
+  } else if (reactState === 'waiting') {
+    // too early
+    clearTimeout(reactTimer);
+    reactState = 'idle';
+    const pad = document.getElementById('reactionPad');
+    pad.className = 'early';
+    document.getElementById('reactionMsg').textContent = 'too early! tap to retry';
+    document.getElementById('reactionTime').textContent = '';
+  } else if (reactState === 'go') {
+    const ms = Math.round(performance.now() - reactStart);
+    reactState = 'done';
+    const pad = document.getElementById('reactionPad');
+    pad.className = 'done';
+    document.getElementById('reactionMsg').textContent = 'tap to go again';
+    document.getElementById('reactionTime').textContent = ms + 'ms';
+    reactTimes.push(ms);
+
+    const best = parseInt(localStorage.getItem('react_best') || 9999);
+    if (ms < best) { localStorage.setItem('react_best', ms); document.getElementById('reactBest').textContent = ms + 'ms'; }
+    const avg = Math.round(reactTimes.reduce((a,b)=>a+b,0)/reactTimes.length);
+    document.getElementById('reactAvg').textContent = avg + 'ms';
+
+    addReactionHistoryRow(ms, reactTimes.length);
+  }
+});
+
+function addReactionHistoryRow(ms, n) {
+  const hist = document.getElementById('reactionHistory');
+  const best = Math.min(...reactTimes);
+  // rerender all
+  hist.innerHTML = '';
+  [...reactTimes].reverse().forEach((t, i) => {
+    const row = document.createElement('div');
+    const pct = Math.max(5, Math.min(100, Math.round((best / t) * 100)));
+    const cls = t > 500 ? 'very-slow' : t > 350 ? 'slow' : '';
+    row.className = `react-row ${cls}`;
+    row.innerHTML = `
+      <span class="r-num">#${reactTimes.length - i}</span>
+      <div class="r-bar"><div class="r-fill" style="width:${pct}%"></div></div>
+      <span class="r-time">${t}ms</span>
+    `;
+    hist.appendChild(row);
+  });
+}
 </script>
 </body>
 </html>
