@@ -30,6 +30,7 @@
     <button class="run" onclick="run()">Run</button>
     <select id="examples" onchange="loadExample()" aria-label="Examples">
       <option value="">Load an example...</option>
+      <option value="code">Normal code (loops, functions, lists)</option>
       <option value="family">Family tree</option>
       <option value="math">Variables and math</option>
       <option value="multi">More than one answer</option>
@@ -46,6 +47,31 @@
 //  EXAMPLES
 // ============================================================
 const EXAMPLES = {
+code: `# fd# can run normal code too
+def greet(name):
+    return "hello " + name
+
+print(greet("fd#"))
+
+nums = [3, 1, 4, 1, 5]
+total = 0
+for n in nums:
+    if n > 2:
+        total += n
+print("total:", total)
+
+i = 0
+while i < 3:
+    print("i is", i)
+    i += 1
+
+def fib(n):
+    if n < 2:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+print(fib(10))
+`,
 family: `# facts
 parent("alice", "bob")
 parent("alice", "dana")
@@ -138,9 +164,9 @@ function lex(src) {
         if (end < 0) fail("this string is missing its closing quote", ln);
         toks.push({ t: "STRING", v: line.slice(i + 1, end), line: ln });
         i = end + 1;
-      } else if ((m = rest.match(/^(==|!=|<=|>=)/))) {
+      } else if ((m = rest.match(/^(==|!=|<=|>=|\+=|-=|\*=|\/=)/))) {
         toks.push({ t: m[0], line: ln }); i += 2;
-      } else if ("(),=+-*/<>:".includes(c)) {
+      } else if ("(),=+-*/%<>:[]".includes(c)) {
         toks.push({ t: c, line: ln }); i++;
       } else {
         fail("I don't understand the character '" + c + "'", ln);
@@ -168,26 +194,29 @@ function parse(toks) {
   const describe = tok => tok.t === "NEWLINE" ? "the end of the line" : tok.t === "EOF" ? "the end of the program"
     : tok.v !== undefined ? "'" + tok.v + "'" : "'" + tok.t + "'";
 
-  // ----- expressions -----
-  function parseExpr() {
-    let left = parseMul();
-    while (peek().t === "+" || peek().t === "-") {
-      const op = next().t;
-      left = { k: "bin", op, l: left, r: parseMul() };
-    }
-    return left;
+  const bin = (op, l, r) => ({ k: "bin", op, l, r });
+  const CMP = ["==", "!=", "<", ">", "<=", ">="];
+  const isKw = w => peek().t === "NAME" && peek().v === w;
+
+  // ----- expressions (lowest precedence first) -----
+  function parseExpr() { return parseOr(); }
+  function parseOr() { let l = parseAnd(); while (isKw("or")) { next(); l = bin("or", l, parseAnd()); } return l; }
+  function parseAnd() { let l = parseNot(); while (isKw("and")) { next(); l = bin("and", l, parseNot()); } return l; }
+  function parseNot() { if (isKw("not")) { next(); return { k: "not", e: parseNot() }; } return parseCmp(); }
+  function parseCmp() { let l = parseAdd(); while (CMP.includes(peek().t)) l = bin(next().t, l, parseAdd()); return l; }
+  function parseAdd() { let l = parseMul(); while (peek().t === "+" || peek().t === "-") l = bin(next().t, l, parseMul()); return l; }
+  function parseMul() { let l = parseUnary(); while (["*", "/", "%"].includes(peek().t)) l = bin(next().t, l, parseUnary()); return l; }
+  function parseUnary() { if (peek().t === "-") { next(); return bin("-", { k: "num", v: 0 }, parseUnary()); } return parsePostfix(); }
+  function parsePostfix() {
+    let e = parsePrimary();
+    while (peek().t === "[") { next(); const i = parseExpr(); expect("]"); e = { k: "index", e, i }; }
+    return e;
   }
-  function parseMul() {
-    let left = parseUnary();
-    while (peek().t === "*" || peek().t === "/") {
-      const op = next().t;
-      left = { k: "bin", op, l: left, r: parseUnary() };
-    }
-    return left;
-  }
-  function parseUnary() {
-    if (peek().t === "-") { next(); return { k: "bin", op: "-", l: { k: "num", v: 0 }, r: parseUnary() }; }
-    return parsePrimary();
+  function parseList(close) {
+    const items = [];
+    if (peek().t !== close) { items.push(parseExpr()); while (peek().t === ",") { next(); items.push(parseExpr()); } }
+    expect(close, "'" + close + "'");
+    return items;
   }
   function parsePrimary() {
     const tok = next();
@@ -196,17 +225,9 @@ function parse(toks) {
       case "STRING": return { k: "str", v: tok.v };
       case "VAR": return { k: "var", n: tok.v };
       case "(": { const e = parseExpr(); expect(")"); return e; }
+      case "[": return { k: "list", items: parseList("]") };
       case "NAME":
-        if (peek().t === "(") {
-          next();
-          const args = [];
-          if (peek().t !== ")") {
-            args.push(parseExpr());
-            while (peek().t === ",") { next(); args.push(parseExpr()); }
-          }
-          expect(")", "')' to close the list");
-          return { k: "cmp", f: tok.v, args };
-        }
+        if (peek().t === "(") { next(); return { k: "cmp", f: tok.v, args: parseList(")") }; }
         return { k: "name", n: tok.v };
       default: fail("I wasn't expecting " + describe(tok), tok);
     }
@@ -215,59 +236,91 @@ function parse(toks) {
   // ----- one line of a rule body -----
   function parseGoal() {
     const left = parseExpr();
-    const ops = ["==", "!=", "<", ">", "<=", ">=", "="];
-    if (ops.includes(peek().t)) {
-      const op = next().t;
-      return { k: "op", op, l: left, r: parseExpr() };
-    }
+    if (left.k === "bin" && CMP.includes(left.op)) return { k: "op", op: left.op, l: left.l, r: left.r };
+    if (peek().t === "=") { next(); return { k: "op", op: "=", l: left, r: parseExpr() }; }
     if (left.k !== "cmp") fail("this line should look like name(...) or a comparison like ?x > 3");
     return left;
   }
 
   // ----- statements -----
+  function parseBlock() {
+    expect(":", "':' at the end of the line"); expect("NEWLINE");
+    if (peek().t !== "INDENT") fail("the lines under this need to be indented");
+    next();
+    const body = [];
+    while (peek().t !== "DEDENT" && peek().t !== "EOF") {
+      if (peek().t === "NEWLINE") { next(); continue; }
+      body.push(parseStmt());
+    }
+    if (peek().t === "DEDENT") next();
+    return body;
+  }
+
+  function parseStmt() {
+    const first = peek(), line = first.line, end = () => expect("NEWLINE");
+    if (first.t === "NAME") {
+      const w = first.v, n1 = peek(1).t;
+      if (w === "teach" && n1 === "NAME") {
+        next();
+        const head = parseExpr();
+        if (head.k !== "cmp") fail("a rule needs a name and parentheses, like teach name(?a, ?b):", first);
+        expect(":", "':' at the end of the rule line"); expect("NEWLINE");
+        if (peek().t !== "INDENT") fail("the lines of a rule must be indented under it");
+        next();
+        const body = [];
+        while (peek().t !== "DEDENT" && peek().t !== "EOF") {
+          if (peek().t === "NEWLINE") { next(); continue; }
+          body.push(parseGoal()); end();
+        }
+        if (peek().t === "DEDENT") next();
+        return { type: "rule", head, body, line };
+      }
+      if (w === "wonder" && n1 !== "=") { next(); const goal = parseGoal(); end(); return { type: "wonder", goal, line }; }
+      if (w === "say" && n1 !== "=" && n1 !== "(") { next(); const e = parseExpr(); end(); return { type: "say", e, line }; }
+      if (w === "if") {
+        next();
+        const branches = [{ cond: parseExpr(), body: parseBlock() }];
+        let orelse = null;
+        while (isKw("elif")) { next(); branches.push({ cond: parseExpr(), body: parseBlock() }); }
+        if (isKw("else")) { next(); orelse = parseBlock(); }
+        return { type: "if", branches, orelse, line };
+      }
+      if (w === "while") { next(); const cond = parseExpr(); return { type: "while", cond, body: parseBlock(), line }; }
+      if (w === "for") {
+        next();
+        const v = expect("NAME", "a variable name").v;
+        if (!isKw("in")) fail("expected the word 'in' after the loop variable");
+        next();
+        const it = parseExpr();
+        return { type: "for", v, it, body: parseBlock(), line };
+      }
+      if (w === "def") {
+        next();
+        const name = expect("NAME", "a function name").v;
+        expect("(");
+        const params = [];
+        if (peek().t !== ")") { params.push(expect("NAME").v); while (peek().t === ",") { next(); params.push(expect("NAME").v); } }
+        expect(")");
+        return { type: "def", name, params, body: parseBlock(), line };
+      }
+      if (w === "return") { next(); const e = peek().t === "NEWLINE" ? null : parseExpr(); end(); return { type: "return", e, line }; }
+      if (w === "break" || w === "continue") { next(); end(); return { type: w, line }; }
+      if (n1 === "=") { next(); next(); const e = parseExpr(); end(); return { type: "assign", name: w, e, line }; }
+      if (["+=", "-=", "*=", "/="].includes(n1)) {
+        next(); const op = next().t[0]; const e = parseExpr(); end();
+        return { type: "assign", name: w, e: bin(op, { k: "name", n: w }, e), line };
+      }
+    }
+    const e = parseExpr();
+    if (peek().t === "=" && e.k === "index") { next(); const v = parseExpr(); end(); return { type: "setindex", e, v, line }; }
+    end();
+    return e.k === "cmp" ? { type: "call", head: e, line } : { type: "expr", e, line };
+  }
+
   const stmts = [];
   while (peek().t !== "EOF") {
     if (peek().t === "NEWLINE") { next(); continue; }
-    const first = peek();
-    const line = first.line;
-
-    if (first.t === "NAME" && first.v === "teach" && peek(1).t === "NAME") {
-      next();
-      const head = parseExpr();
-      if (head.k !== "cmp") fail("a rule needs a name and parentheses, like teach name(?a, ?b):", first);
-      expect(":", "':' at the end of the rule line");
-      expect("NEWLINE");
-      if (peek().t !== "INDENT") fail("the lines of a rule must be indented under it");
-      next();
-      const body = [];
-      while (peek().t !== "DEDENT" && peek().t !== "EOF") {
-        if (peek().t === "NEWLINE") { next(); continue; }
-        body.push(parseGoal());
-        expect("NEWLINE");
-      }
-      if (peek().t === "DEDENT") next();
-      stmts.push({ type: "rule", head, body, line });
-    } else if (first.t === "NAME" && first.v === "wonder" && peek(1).t !== "=") {
-      next();
-      const goal = parseGoal();
-      expect("NEWLINE");
-      stmts.push({ type: "wonder", goal, line });
-    } else if (first.t === "NAME" && first.v === "say" && peek(1).t !== "=" && peek(1).t !== "(") {
-      next();
-      const e = parseExpr();
-      expect("NEWLINE");
-      stmts.push({ type: "say", expr: e, line });
-    } else if (first.t === "NAME" && peek(1).t === "=") {
-      next(); next();
-      const e = parseExpr();
-      expect("NEWLINE");
-      stmts.push({ type: "assign", name: first.v, expr: e, line });
-    } else {
-      const head = parseExpr();
-      if (head.k !== "cmp") fail("I don't know what this line means. Facts look like name(\"a\", \"b\")", first);
-      expect("NEWLINE");
-      stmts.push({ type: "fact", head, line });
-    }
+    stmts.push(parseStmt());
   }
   return stmts;
 }
@@ -291,6 +344,7 @@ function rename(a, m) {
     case "name": return a.n in globals ? globals[a.n] : a.n;
     case "cmp": return { f: a.f, args: a.args.map(x => rename(x, m)) };
     case "bin": return { bin: true, op: a.op, l: rename(a.l, m), r: rename(a.r, m) };
+    default: throw new Error("lists, and/or/not are not allowed inside facts and rules yet");
   }
 }
 function renameGoal(g, m) {
@@ -314,6 +368,7 @@ function ev(t, s) {
     if (typeof a !== "number" || typeof b !== "number") throw new Error("you can only use " + t.op + " on numbers");
     if (t.op === "-") return a - b;
     if (t.op === "*") return a * b;
+    if (t.op === "%") return a % b;
     if (t.op === "/") { if (b === 0) throw new Error("divided by zero"); return a / b; }
   }
   return t;
@@ -389,42 +444,170 @@ function show(t, s) {
   return String(t);
 }
 
-function interpret(src) {
-  db = []; globals = {};
-  const out = [];
-  const stmts = parse(lex(src));
+let FUNCS = {}, OUT = [], STEPS = 0, DEPTH = 0;
 
-  for (const st of stmts) {
-    try {
-      if (st.type === "fact") {
-        db.push({ head: st.head, body: [] });
-      } else if (st.type === "rule") {
-        db.push({ head: st.head, body: st.body });
-      } else if (st.type === "assign") {
-        const v = ev(rename(st.expr, {}), {});
-        if (v === undefined) throw new Error("can't work out a value for " + st.name);
-        globals[st.name] = v;
-      } else if (st.type === "say") {
-        const v = ev(rename(st.expr, {}), {});
-        out.push(v === undefined ? "?" : show(v, {}));
-      } else if (st.type === "wonder") {
+function disp(v) {
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) return "[" + v.map(x => typeof x === "string" ? JSON.stringify(x) : disp(x)).join(", ") + "]";
+  if (v === null || v === undefined) return "nothing";
+  if (typeof v === "object") return show(v, {});
+  return String(v);
+}
+const truthy = v => Array.isArray(v) ? v.length > 0 : !!v;
+const tick = () => { if (++STEPS > 2000000) throw new Error("the program ran too long. Is there a loop that never ends?"); };
+
+const BUILTINS = {
+  print: (...a) => { OUT.push(a.map(disp).join(" ")); return null; },
+  len: x => x.length,
+  str: x => disp(x),
+  num: x => { const n = Number(x); if (isNaN(n)) throw new Error('"' + x + '" is not a number'); return n; },
+  int: x => Math.trunc(Number(x)),
+  abs: x => Math.abs(x),
+  sum: l => l.reduce((a, b) => a + b, 0),
+  max: (...a) => Math.max(...(a.length === 1 ? a[0] : a)),
+  min: (...a) => Math.min(...(a.length === 1 ? a[0] : a)),
+  append: (l, x) => { l.push(x); return l; },
+  upper: s => s.toUpperCase(),
+  lower: s => s.toLowerCase(),
+  input: q => { const r = prompt(q); return r === null ? "" : r; },
+  range: (a, b, c = 1) => {
+    if (b === undefined) { b = a; a = 0; }
+    const r = [];
+    for (let i = a; c > 0 ? i < b : i > b; i += c) { r.push(i); if (r.length > 1000000) throw new Error("range is too big"); }
+    return r;
+  }
+};
+
+function callFn(name, args, env) {
+  const f = FUNCS[name];
+  if (f) {
+    if (args.length !== f.params.length) throw new Error(name + " needs " + f.params.length + " value(s) but got " + args.length);
+    if (++DEPTH > 1500) throw new Error("too much recursion in " + name);
+    const scope = Object.create(globals);
+    f.params.forEach((p, i) => scope[p] = args[i]);
+    const r = execBlock(f.body, scope);
+    DEPTH--;
+    return r && r.s === "ret" ? r.v : null;
+  }
+  if (BUILTINS[name]) return BUILTINS[name](...args);
+  throw new Error('there is no function called "' + name + '"');
+}
+
+function evalG(a, env) {
+  switch (a.k) {
+    case "num": case "str": return a.v;
+    case "name":
+      if (a.n in env) return env[a.n];
+      return a.n === "true" ? true : a.n === "false" ? false : a.n;
+    case "var": throw new Error("?" + a.n + " only works in facts, rules and wonder");
+    case "list": return a.items.map(x => evalG(x, env));
+    case "index": {
+      const l = evalG(a.e, env), i = evalG(a.i, env);
+      if (!(typeof l === "string" || Array.isArray(l))) throw new Error("you can only use [ ] on a list or text");
+      if (!Number.isInteger(i) || i < 0 || i >= l.length) throw new Error("position " + disp(i) + " is outside the list (it has " + l.length + " items)");
+      return l[i];
+    }
+    case "not": return !truthy(evalG(a.e, env));
+    case "cmp": return callFn(a.f, a.args.map(x => evalG(x, env)), env);
+    case "bin": {
+      if (a.op === "and") { const l = evalG(a.l, env); return truthy(l) ? evalG(a.r, env) : l; }
+      if (a.op === "or") { const l = evalG(a.l, env); return truthy(l) ? l : evalG(a.r, env); }
+      const l = evalG(a.l, env), r = evalG(a.r, env);
+      const same = JSON.stringify(l) === JSON.stringify(r);
+      switch (a.op) {
+        case "==": return same;
+        case "!=": return !same;
+        case "<": return l < r;
+        case ">": return l > r;
+        case "<=": return l <= r;
+        case ">=": return l >= r;
+        case "+":
+          if (Array.isArray(l) && Array.isArray(r)) return [...l, ...r];
+          if (typeof l === "string" || typeof r === "string") return disp(l) + disp(r);
+      }
+      if (typeof l !== "number" || typeof r !== "number") throw new Error("you can only use " + a.op + " on numbers");
+      if (a.op === "+") return l + r;
+      if (a.op === "-") return l - r;
+      if (a.op === "*") return l * r;
+      if (a.op === "%") return l % r;
+      if (a.op === "/") { if (r === 0) throw new Error("divided by zero"); return l / r; }
+    }
+  }
+}
+
+function execBlock(stmts, env) {
+  for (const st of stmts) { const r = exec(st, env); if (r) return r; }
+}
+
+function exec(st, env) {
+  try {
+    switch (st.type) {
+      case "call":
+        if (FUNCS[st.head.f] || BUILTINS[st.head.f]) evalG(st.head, env);
+        else db.push({ head: st.head, body: [] });
+        return;
+      case "rule": db.push({ head: st.head, body: st.body }); return;
+      case "assign": env[st.name] = evalG(st.e, env); return;
+      case "say": OUT.push(disp(evalG(st.e, env))); return;
+      case "expr": evalG(st.e, env); return;
+      case "def": FUNCS[st.name] = st; return;
+      case "return": return { s: "ret", v: st.e ? evalG(st.e, env) : null };
+      case "break": return { s: "break" };
+      case "continue": return;
+      case "setindex": {
+        const l = evalG(st.e.e, env), i = evalG(st.e.i, env);
+        if (!Array.isArray(l) || !Number.isInteger(i) || i < 0 || i >= l.length) throw new Error("can't set that position");
+        l[i] = evalG(st.v, env); return;
+      }
+      case "if": {
+        for (const b of st.branches) if (truthy(evalG(b.cond, env))) return execBlock(b.body, env);
+        return st.orelse ? execBlock(st.orelse, env) : undefined;
+      }
+      case "while":
+        while (truthy(evalG(st.cond, env))) {
+          tick();
+          const r = execBlock(st.body, env);
+          if (r && r.s === "break") break;
+          if (r && r.s === "ret") return r;
+        }
+        return;
+      case "for": {
+        let items = evalG(st.it, env);
+        if (typeof items === "string") items = items.split("");
+        if (!Array.isArray(items)) throw new Error("for needs a list, text, or range(...) after 'in'");
+        for (const x of items) {
+          tick();
+          env[st.v] = x;
+          const r = execBlock(st.body, env);
+          if (r && r.s === "break") break;
+          if (r && r.s === "ret") return r;
+        }
+        return;
+      }
+      case "wonder": {
         const m = {};
         const goal = renameGoal(st.goal, m);
         const names = Object.keys(m);
         let count = 0;
         for (const s of solve([goal], {}, { steps: 0 })) {
           count++;
-          out.push(names.length ? names.map(n => "?" + n + " = " + show(m[n], s)).join(", ") : "yes");
-          if (count >= 100) { out.push("(stopped after 100 answers)"); break; }
+          OUT.push(names.length ? names.map(n => "?" + n + " = " + show(m[n], s)).join(", ") : "yes");
+          if (count >= 100) { OUT.push("(stopped after 100 answers)"); break; }
         }
-        if (count === 0) out.push("no");
+        if (count === 0) OUT.push("no");
+        return;
       }
-    } catch (e) {
-      if (/^line \d+:/.test(e.message)) throw e;
-      throw new Error("line " + st.line + ": " + e.message);
     }
+  } catch (e) {
+    if (/^line \d+:/.test(e.message)) throw e;
+    throw new Error("line " + st.line + ": " + e.message);
   }
-  return out.length ? out.join("\n") : "(the program ran but didn't say or wonder anything)";
+}
+
+function interpret(src) {
+  db = []; globals = Object.create(null); FUNCS = {}; OUT = []; STEPS = 0; DEPTH = 0;
+  execBlock(parse(lex(src)), globals);
+  return OUT.length ? OUT.join("\n") : "(done. Nothing was printed)";
 }
 
 // ============================================================
