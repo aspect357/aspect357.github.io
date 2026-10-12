@@ -20,12 +20,23 @@
   pre { min-height: 110px; white-space: pre-wrap; }
   pre.err { color: #ff8a80; }
   small { color: var(--muted); }
+  .tab.on { border-color: var(--accent); color: var(--accent); }
+  #ref h2 { margin: 1.6rem 0 .4rem; font-size: 1.15rem; }
+  #ref pre { cursor: pointer; margin: .5rem 0 .2rem; min-height: 0; }
+  #ref pre:hover { border-color: var(--accent); }
+  #ref p { margin: 0 0 .8rem; color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
   <h1>fd#</h1>
 
+  <div class="bar">
+    <button class="tab on" id="tabEd" onclick="tab('ed')">Editor</button>
+    <button class="tab" id="tabRef" onclick="tab('ref')">Commands</button>
+  </div>
+  <div id="ref" hidden><p>Click any example to copy it into the editor.</p></div>
+  <div id="ed">
   <div class="bar">
     <button class="run" onclick="run()">Run</button>
     <select id="examples" onchange="loadExample()" aria-label="Examples">
@@ -40,6 +51,7 @@
 
   <textarea id="code" spellcheck="false"></textarea>
   <pre id="output">Output shows up here.</pre>
+  </div>
 </main>
 
 <script>
@@ -51,18 +63,18 @@ code: `# fd# can run normal code too
 def greet(name):
     return "hello " + name
 
-print(greet("fd#"))
+say(greet("fd#"))
 
 nums = [3, 1, 4, 1, 5]
 total = 0
 for n in nums:
     if n > 2:
         total += n
-print("total:", total)
+say("total:", total)
 
 i = 0
 while i < 3:
-    print("i is", i)
+    say("i is", i)
     i += 1
 
 def fib(n):
@@ -70,7 +82,7 @@ def fib(n):
         return n
     return fib(n - 1) + fib(n - 2)
 
-print(fib(10))
+say(fib(10))
 `,
 family: `# facts
 parent("alice", "bob")
@@ -89,8 +101,8 @@ math: `# variables work like Python
 x = 5
 name = "alice"
 total = x + 10
-say total
-say name
+say(total)
+say(name)
 
 # recursion with math
 fact_of(0, 1)
@@ -166,7 +178,7 @@ function lex(src) {
         i = end + 1;
       } else if ((m = rest.match(/^(==|!=|<=|>=|\+=|-=|\*=|\/=)/))) {
         toks.push({ t: m[0], line: ln }); i += 2;
-      } else if ("(),=+-*/%<>:[]".includes(c)) {
+      } else if ("(),=+-*/%<>:[]{}".includes(c)) {
         toks.push({ t: c, line: ln }); i++;
       } else {
         fail("I don't understand the character '" + c + "'", ln);
@@ -203,7 +215,7 @@ function parse(toks) {
   function parseOr() { let l = parseAnd(); while (isKw("or")) { next(); l = bin("or", l, parseAnd()); } return l; }
   function parseAnd() { let l = parseNot(); while (isKw("and")) { next(); l = bin("and", l, parseNot()); } return l; }
   function parseNot() { if (isKw("not")) { next(); return { k: "not", e: parseNot() }; } return parseCmp(); }
-  function parseCmp() { let l = parseAdd(); while (CMP.includes(peek().t)) l = bin(next().t, l, parseAdd()); return l; }
+  function parseCmp() { let l = parseAdd(); for (;;) { if (CMP.includes(peek().t)) l = bin(next().t, l, parseAdd()); else if (isKw("in")) { next(); l = bin("in", l, parseAdd()); } else return l; } }
   function parseAdd() { let l = parseMul(); while (peek().t === "+" || peek().t === "-") l = bin(next().t, l, parseMul()); return l; }
   function parseMul() { let l = parseUnary(); while (["*", "/", "%"].includes(peek().t)) l = bin(next().t, l, parseUnary()); return l; }
   function parseUnary() { if (peek().t === "-") { next(); return bin("-", { k: "num", v: 0 }, parseUnary()); } return parsePostfix(); }
@@ -226,6 +238,16 @@ function parse(toks) {
       case "VAR": return { k: "var", n: tok.v };
       case "(": { const e = parseExpr(); expect(")"); return e; }
       case "[": return { k: "list", items: parseList("]") };
+      case "{": {
+        const pairs = [];
+        while (peek().t !== "}") {
+          const k = parseExpr(); expect(":", "':' between a key and its value");
+          pairs.push([k, parseExpr()]);
+          if (peek().t === ",") next(); else break;
+        }
+        expect("}", "'}'");
+        return { k: "dict", pairs };
+      }
       case "NAME":
         if (peek().t === "(") { next(); return { k: "cmp", f: tok.v, args: parseList(")") }; }
         return { k: "name", n: tok.v };
@@ -449,16 +471,34 @@ let FUNCS = {}, OUT = [], STEPS = 0, DEPTH = 0;
 function disp(v) {
   if (typeof v === "string") return v;
   if (Array.isArray(v)) return "[" + v.map(x => typeof x === "string" ? JSON.stringify(x) : disp(x)).join(", ") + "]";
+  if (v instanceof Map) return "{" + [...v].map(([k, x]) => (typeof k === "string" ? JSON.stringify(k) : disp(k)) + ": " + (typeof x === "string" ? JSON.stringify(x) : disp(x))).join(", ") + "}";
   if (v === null || v === undefined) return "nothing";
   if (typeof v === "object") return show(v, {});
   return String(v);
 }
-const truthy = v => Array.isArray(v) ? v.length > 0 : !!v;
+const truthy = v => v instanceof Map ? v.size > 0 : Array.isArray(v) ? v.length > 0 : !!v;
+const J = v => JSON.stringify(v, (k, x) => x instanceof Map ? [...x] : x);
 const tick = () => { if (++STEPS > 2000000) throw new Error("the program ran too long. Is there a loop that never ends?"); };
 
 const BUILTINS = {
   print: (...a) => { OUT.push(a.map(disp).join(" ")); return null; },
-  len: x => x.length,
+  len: x => x instanceof Map ? x.size : x.length,
+  say: (...a) => BUILTINS.print(...a),
+  list: (...a) => a,
+  dict: () => new Map(),
+  keys: d => [...d.keys()],
+  values: d => [...d.values()],
+  join: (l, sep = "") => l.map(disp).join(sep),
+  split: (s, sep = " ") => s.split(sep),
+  replace: (s, a, b) => s.split(a).join(b),
+  sort: l => [...l].sort((a, b) => a < b ? -1 : a > b ? 1 : 0),
+  reverse: l => [...l].reverse(),
+  pop: l => l.pop(),
+  round: (x, d = 0) => Math.round(x * 10 ** d) / 10 ** d,
+  floor: x => Math.floor(x), ceil: x => Math.ceil(x), sqrt: x => Math.sqrt(x),
+  power: (a, b) => a ** b,
+  random: n => Math.floor(Math.random() * n),
+  type: x => x instanceof Map ? "dictionary" : Array.isArray(x) ? "list" : typeof x === "number" ? "number" : typeof x === "string" ? "text" : typeof x === "boolean" ? "yes/no" : "nothing",
   str: x => disp(x),
   num: x => { const n = Number(x); if (isNaN(n)) throw new Error('"' + x + '" is not a number'); return n; },
   int: x => Math.trunc(Number(x)),
@@ -501,8 +541,10 @@ function evalG(a, env) {
       return a.n === "true" ? true : a.n === "false" ? false : a.n;
     case "var": throw new Error("?" + a.n + " only works in facts, rules and wonder");
     case "list": return a.items.map(x => evalG(x, env));
+    case "dict": return new Map(a.pairs.map(([k, v]) => [evalG(k, env), evalG(v, env)]));
     case "index": {
       const l = evalG(a.e, env), i = evalG(a.i, env);
+      if (l instanceof Map) { if (!l.has(i)) throw new Error("the dictionary has no key " + disp(i)); return l.get(i); }
       if (!(typeof l === "string" || Array.isArray(l))) throw new Error("you can only use [ ] on a list or text");
       if (!Number.isInteger(i) || i < 0 || i >= l.length) throw new Error("position " + disp(i) + " is outside the list (it has " + l.length + " items)");
       return l[i];
@@ -513,7 +555,13 @@ function evalG(a, env) {
       if (a.op === "and") { const l = evalG(a.l, env); return truthy(l) ? evalG(a.r, env) : l; }
       if (a.op === "or") { const l = evalG(a.l, env); return truthy(l) ? l : evalG(a.r, env); }
       const l = evalG(a.l, env), r = evalG(a.r, env);
-      const same = JSON.stringify(l) === JSON.stringify(r);
+      if (a.op === "in") {
+        if (r instanceof Map) return r.has(l);
+        if (typeof r === "string") return r.includes(String(l));
+        if (Array.isArray(r)) return r.some(x => J(x) === J(l));
+        throw new Error("'in' needs text, a list, or a dictionary on the right");
+      }
+      const same = J(l) === J(r);
       switch (a.op) {
         case "==": return same;
         case "!=": return !same;
@@ -556,6 +604,7 @@ function exec(st, env) {
       case "continue": return;
       case "setindex": {
         const l = evalG(st.e.e, env), i = evalG(st.e.i, env);
+        if (l instanceof Map) { l.set(i, evalG(st.v, env)); return; }
         if (!Array.isArray(l) || !Number.isInteger(i) || i < 0 || i >= l.length) throw new Error("can't set that position");
         l[i] = evalG(st.v, env); return;
       }
@@ -574,6 +623,7 @@ function exec(st, env) {
       case "for": {
         let items = evalG(st.it, env);
         if (typeof items === "string") items = items.split("");
+        if (items instanceof Map) items = [...items.keys()];
         if (!Array.isArray(items)) throw new Error("for needs a list, text, or range(...) after 'in'");
         for (const x of items) {
           tick();
@@ -617,6 +667,7 @@ const codeBox = document.getElementById("code");
 const outBox = document.getElementById("output");
 
 function run() {
+  try { localStorage.setItem("fd_code", codeBox.value); } catch (e) {}
   try {
     outBox.className = "";
     outBox.textContent = interpret(codeBox.value);
@@ -643,7 +694,95 @@ codeBox.addEventListener("keydown", e => {
   }
 });
 
-codeBox.value = EXAMPLES.family;
+// ============================================================
+//  COMMANDS PAGE (click any example to copy it into the editor)
+// ============================================================
+const REF = [
+["The basics", [
+ [`say("hello")`, "Shows something on the screen. You can give it several things: say(\"total:\", 5)."],
+ [`# this is a note`, "Anything after # is ignored. Use it to explain your code."],
+ [`x = 5\nname = "sam"`, "Saves a value under a name. Text goes in quotes, numbers don't."],
+ [`x += 1`, "Changes a saved number. Also -=, *=, /=."],
+ [`age = input("How old are you?")`, "Pops up a box and saves what you type (as text)."],
+]],
+["Math", [
+ [`say(2 + 3 * 4)`, "+ add, - subtract, * multiply, / divide, % remainder. Brackets work: (2 + 3) * 4."],
+ [`say(power(2, 10))`, "2 to the power of 10."],
+ [`say(round(3.14159, 2))`, "Rounds a number. Also floor(x), ceil(x), sqrt(x), abs(x)."],
+ [`say(random(10))`, "A random whole number from 0 to 9."],
+]],
+["Making choices", [
+ [`if x > 3:\n    say("big")\nelif x == 3:\n    say("three")\nelse:\n    say("small")`, "Runs the indented lines only when the check is true. The lines under it must be indented (press Tab)."],
+ [`if x > 1 and not x == 5:`, "Combine checks with and, or, not. Compare with == != < > <= >=."],
+ [`if "a" in "cat":`, "'in' checks if something is inside text, a list, or a dictionary."],
+]],
+["Loops", [
+ [`for i in range(1, 6):\n    say(i)`, "Repeats for each number. range(1, 6) gives 1 to 5. range(5) gives 0 to 4."],
+ [`for fruit in ["apple", "pear"]:\n    say(fruit)`, "Goes through every item in a list. Also works on text (each letter)."],
+ [`while x < 10:\n    x += 1`, "Repeats while the check stays true."],
+ [`break`, "Stops a loop early. continue skips to the next round."],
+]],
+["Functions", [
+ [`def double(n):\n    return n * 2\n\nsay(double(4))`, "Makes your own command. def names it, return gives back an answer."],
+ [`def fib(n):\n    if n < 2:\n        return n\n    return fib(n - 1) + fib(n - 2)`, "Functions can call themselves."],
+]],
+["Lists", [
+ [`nums = [3, 1, 2]\nnums2 = list("a", "b")`, "A list holds many values. [..] and list(..) both make one."],
+ [`say(nums[0])`, "Gets an item. Counting starts at 0."],
+ [`nums[0] = 9`, "Changes an item."],
+ [`append(nums, 4)`, "Adds to the end. pop(nums) removes and gives back the last item."],
+ [`say(len(nums))`, "How many items. Also sum(l), max(l), min(l)."],
+ [`say(sort(nums))\nsay(reverse(nums))`, "Gives a sorted or backwards copy."],
+ [`say(nums + [7, 8])`, "Joins two lists."],
+]],
+["Dictionaries", [
+ [`pet = {"name": "Rex", "age": 3}`, "A dictionary stores values under names (keys). dict() makes an empty one."],
+ [`say(pet["name"])\npet["age"] = 4\npet["color"] = "brown"`, "Read, change, or add a value."],
+ [`say(keys(pet))\nsay(values(pet))`, "Lists of all keys or all values."],
+ [`if "name" in pet:`, "Checks if a key exists. len(pet) counts them."],
+ [`for k in pet:\n    say(k, pet[k])`, "Loops over the keys."],
+]],
+["Text", [
+ [`say("hi " + "there")`, "+ joins text. Numbers get turned into text automatically."],
+ [`say(upper("hi"), lower("HI"))`, "Changes capital letters."],
+ [`say(split("a b c", " "))\nsay(join(["a", "b"], "-"))`, "split cuts text into a list. join glues a list into text."],
+ [`say(replace("cat", "c", "b"))`, "Swaps part of the text."],
+ [`say("hello"[0], len("hello"))`, "Gets a letter, counts letters."],
+ [`n = num("42")\ns = str(42)\ni = int(3.9)`, "Change between text and numbers."],
+ [`say(type(5))`, "Tells you what kind of value it is."],
+]],
+["Logic (facts, rules, questions)", [
+ [`parent("alice", "bob")\nparent("bob", "carol")`, "A fact: something that is true. Any name(...) line that isn't a command is a fact."],
+ [`wonder parent("alice", ?who)`, "A question. ?who is a blank the computer fills in. Prints every answer, or yes / no if there are no blanks."],
+ [`teach grandparent(?a, ?c):\n    parent(?a, ?b)\n    parent(?b, ?c)`, "A rule: true when every indented line is true. You can use ?x > 3, ?a != ?b and ?m = ?n - 1 inside rules."],
+ [`wonder grandparent("alice", ?who)`, "Ask about the rule. Define facts and rules before the wonder that uses them."],
+]],
+];
+
+function buildRef() {
+  const box = document.getElementById("ref");
+  for (const [title, items] of REF) {
+    const h = document.createElement("h2"); h.textContent = title; box.appendChild(h);
+    for (const [code, text] of items) {
+      const pre = document.createElement("pre");
+      pre.textContent = code; pre.title = "Click to copy into the editor";
+      pre.onclick = () => { codeBox.value += (codeBox.value.endsWith("\n") ? "" : "\n") + "\n" + code + "\n"; tab("ed"); };
+      const p = document.createElement("p"); p.textContent = text;
+      box.appendChild(pre); box.appendChild(p);
+    }
+  }
+}
+function tab(which) {
+  document.getElementById("ed").hidden = which !== "ed";
+  document.getElementById("ref").hidden = which !== "ref";
+  document.getElementById("tabEd").classList.toggle("on", which === "ed");
+  document.getElementById("tabRef").classList.toggle("on", which === "ref");
+}
+buildRef();
+
+let saved = null;
+try { saved = localStorage.getItem("fd_code"); } catch (e) {}
+codeBox.value = saved || EXAMPLES.family;
 run();
 </script>
 </body>
