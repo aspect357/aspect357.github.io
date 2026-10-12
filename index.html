@@ -3,14 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>fd#</title>
+<title>fd# Studio</title>
 <style>
   :root { --bg:#14161a; --panel:#1c1f26; --text:#e6e6e6; --muted:#8b93a1; --accent:#f2b84b; --line:#2c303a; }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font-family: system-ui, sans-serif; }
   main { max-width: 820px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
   h1 { margin: 0 0 .25rem; font-size: 1.6rem; }
-  p.sub { margin: 0 0 1rem; color: var(--muted); }
   .bar { display:flex; gap:.5rem; align-items:center; margin: .75rem 0; flex-wrap: wrap; }
   button, select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: .5rem .9rem; font-size: 1rem; cursor: pointer; }
   button.run { background: var(--accent); color:#1a1a1a; border-color: var(--accent); font-weight: 600; }
@@ -26,11 +25,21 @@
   #ref pre:hover { border-color: var(--accent); }
   #ref p { margin: 0 0 .8rem; color: var(--muted); }
   canvas { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; margin-top: .6rem; max-width: 100%; }
+  .intro { margin: .25rem 0 1rem; color: var(--muted); }
+  .quickstart { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: .8rem 1rem; margin: 0 0 1rem; }
+  .quickstart p { margin: .4rem 0 0; }
+  kbd { border: 1px solid var(--line); border-radius: 4px; padding: .1rem .35rem; font: inherit; }
 </style>
 </head>
 <body>
 <main>
-  <h1>fd#</h1>
+  <h1>fd# Studio</h1>
+  <p class="intro">A small language for regular programs and beginner AI experiments.</p>
+  <section class="quickstart" aria-label="Quick start">
+    <strong>Start here</strong>
+    <p>Write code below and press <kbd>Run</kbd>. Use <code>say(...)</code> to show a result. Choose an example to learn one feature at a time.</p>
+    <p><strong>AI note:</strong> fd# can train a small number-based neural network from examples. It is a learning project, not a ChatGPT-sized language model.</p>
+  </section>
 
   <div class="bar">
     <button class="tab on" id="tabEd" onclick="tab('ed')">Editor</button>
@@ -38,39 +47,38 @@
   </div>
   <div id="ref" hidden><p>Click any example to copy it into the editor.</p></div>
   <div id="ed">
-  <div class="bar">
-    <button class="run" onclick="run()">Run</button>
-    <select id="examples" onchange="loadExample()" aria-label="Examples">
-      <option value="">Load an example...</option>
-      <option value="ai">AI: a brain that learns</option>
-      <option value="draw">Drawing</option>
-      <option value="code">Normal code (loops, functions, lists)</option>
-      <option value="family">Family tree</option>
-      <option value="math">Variables and math</option>
-      <option value="multi">More than one answer</option>
-    </select>
-    <small>Ctrl+Enter runs. Tab indents.</small>
-  </div>
-
-  <textarea id="code" spellcheck="false"></textarea>
-  <pre id="output">Output shows up here.</pre>
-  <canvas id="canvas" width="480" height="320" hidden></canvas>
+    <div class="bar">
+      <button class="run" onclick="run()">Run</button>
+      <select id="examples" onchange="loadExample()" aria-label="Examples">
+        <option value="">Load an example...</option>
+        <option value="ai">AI: a brain that learns</option>
+        <option value="draw">Drawing</option>
+        <option value="code">Normal code (loops, functions, lists)</option>
+        <option value="family">Family tree</option>
+        <option value="math">Variables and math</option>
+        <option value="multi">More than one answer</option>
+      </select>
+      <small>Ctrl+Enter runs. Tab indents.</small>
+    </div>
+    <textarea id="code" spellcheck="false"></textarea>
+    <pre id="output">Output shows up here.</pre>
+    <canvas id="canvas" width="480" height="320" hidden></canvas>
   </div>
 </main>
 
 <script>
 // ============================================================
-//  EXAMPLES
+// EXAMPLES
 // ============================================================
 const EXAMPLES = {
-ai: `# a tiny brain that learns the XOR rule
+ai: `# Teach a tiny AI to learn a simple pattern
 examples = [[[0, 0], 0], [[0, 1], 1], [[1, 0], 1], [[1, 1], 0]]
-brain = network(2, 8, 1)
-say("before training:", round(predict(brain, [1, 0]), 2))
-err = train(brain, examples, 5000)
-say("how wrong it is now:", round(err, 4))
-for pair in examples:
-    say(pair[0], "->", round(predict(brain, pair[0]), 2))
+model = brain(2, 8, 1)
+error_before = error(model, examples)
+error_after = learn(model, examples, 3000)
+say("error before:", round(error_before, 3))
+say("error after:", round(error_after, 3))
+say("guess for [1, 0]:", round(guess(model, [1, 0]), 2))
 `,
 draw: `# drawing shows up under the output
 background("black")
@@ -154,27 +162,48 @@ wonder sibling("bob", ?who)
 };
 
 // ============================================================
-//  1. LEXER: text -> tokens (with INDENT / DEDENT like Python)
+// 1. LEXER
+// Turns the code text into tokens.
 // ============================================================
 function lex(src) {
   const toks = [];
   const stack = [0];
-  const bd = s => { let d = 0, q = false; for (const c of s) { if (c === '"') q = !q; else if (!q && c === "#") break; else if (!q && "([{".includes(c)) d++; else if (!q && ")]}".includes(c)) d--; } return d; };
+
+  const bd = s => {
+    let d = 0, q = false;
+    for (const c of s) {
+      if (c === '"') q = !q;
+      else if (!q && c === "#") break;
+      else if (!q && "([{".includes(c)) d++;
+      else if (!q && ")]}".includes(c)) d--;
+    }
+    return d;
+  };
+
   const raw = src.split("\n"), lines = [];
-  for (let n = 0; n < raw.length; n++) {            // a list can continue on the next lines
+
+  for (let n = 0; n < raw.length; n++) {
     let cur = raw[n], extra = 0;
-    while (bd(cur) > 0 && n + 1 < raw.length) { n++; extra++; cur += " " + raw[n].trim(); }
+    while (bd(cur) > 0 && n + 1 < raw.length) {
+      n++;
+      extra++;
+      cur += " " + raw[n].trim();
+    }
     lines.push(cur);
     for (let k = 0; k < extra; k++) lines.push("");
   }
-  const fail = (msg, ln) => { throw new Error("line " + ln + ": " + msg); };
+
+  const fail = (msg, ln) => {
+    throw new Error("line " + ln + ": " + msg);
+  };
 
   for (let n = 0; n < lines.length; n++) {
     const ln = n + 1;
     const line = lines[n].replace(/\t/g, "    ").replace(/\r$/, "");
     let i = 0, indent = 0;
+
     while (line[i] === " ") { indent++; i++; }
-    if (i >= line.length || line[i] === "#") continue;      // blank or comment-only
+    if (i >= line.length || line[i] === "#") continue;
 
     if (indent > stack[stack.length - 1]) {
       stack.push(indent);
@@ -184,278 +213,608 @@ function lex(src) {
         stack.pop();
         toks.push({ t: "DEDENT", line: ln });
       }
-      if (indent !== stack[stack.length - 1]) fail("indentation does not match an earlier line", ln);
+      if (indent !== stack[stack.length - 1]) {
+        fail("indentation does not match an earlier line", ln);
+      }
     }
 
     while (i < line.length) {
       const c = line[i];
       const rest = line.slice(i);
       let m;
-      if (c === " ") { i++; continue; }
+
+      if (c === " ") {
+        i++;
+        continue;
+      }
       if (c === "#") break;
+
       if ((m = rest.match(/^[A-Za-z_]\w*/))) {
-        toks.push({ t: "NAME", v: m[0], line: ln }); i += m[0].length;
+        toks.push({ t: "NAME", v: m[0], line: ln });
+        i += m[0].length;
       } else if ((m = rest.match(/^\?\w+/))) {
-        toks.push({ t: "VAR", v: m[0].slice(1), line: ln }); i += m[0].length;
+        toks.push({ t: "VAR", v: m[0].slice(1), line: ln });
+        i += m[0].length;
       } else if ((m = rest.match(/^\d+(\.\d+)?/))) {
-        toks.push({ t: "NUMBER", v: parseFloat(m[0]), line: ln }); i += m[0].length;
+        toks.push({ t: "NUMBER", v: parseFloat(m[0]), line: ln });
+        i += m[0].length;
       } else if (c === '"') {
-        const end = line.indexOf('"', i + 1);
-        if (end < 0) fail("this string is missing its closing quote", ln);
-        toks.push({ t: "STRING", v: line.slice(i + 1, end), line: ln });
+        let end = i + 1;
+        while (end < line.length) {
+          if (line[end] === '"' && line[end - 1] !== "\\") break;
+          end++;
+        }
+        if (end >= line.length) fail("this string is missing its closing quote", ln);
+
+        let value = line.slice(i + 1, end);
+        value = value.replace(/\\"/g, '"').replace(/\\n/g, "\n").replace(/\\\\/g, "\\");
+        toks.push({ t: "STRING", v: value, line: ln });
         i = end + 1;
       } else if ((m = rest.match(/^(==|!=|<=|>=|\+=|-=|\*=|\/=)/))) {
-        toks.push({ t: m[0], line: ln }); i += 2;
+        toks.push({ t: m[0], line: ln });
+        i += m[0].length;
       } else if ("(),=+-*/%<>:[]{}".includes(c)) {
-        toks.push({ t: c, line: ln }); i++;
+        toks.push({ t: c, line: ln });
+        i++;
       } else {
         fail("I don't understand the character '" + c + "'", ln);
       }
     }
+
     toks.push({ t: "NEWLINE", line: ln });
   }
-  while (stack.length > 1) { stack.pop(); toks.push({ t: "DEDENT", line: lines.length }); }
+
+  while (stack.length > 1) {
+    stack.pop();
+    toks.push({ t: "DEDENT", line: lines.length });
+  }
+
   toks.push({ t: "EOF", line: lines.length });
   return toks;
 }
 
 // ============================================================
-//  2. PARSER: tokens -> statements
+// 2. PARSER
+// Turns tokens into statements and expressions.
 // ============================================================
 function parse(toks) {
   let p = 0;
   const peek = (k = 0) => toks[Math.min(p + k, toks.length - 1)];
   const next = () => toks[p++];
-  const fail = (msg, tok = peek()) => { throw new Error("line " + tok.line + ": " + msg); };
+
+  const fail = (msg, tok = peek()) => {
+    throw new Error("line " + tok.line + ": " + msg);
+  };
+
   const expect = (t, what) => {
-    if (peek().t !== t) fail("expected " + (what || t) + " but found " + describe(peek()));
+    if (peek().t !== t) {
+      fail("expected " + (what || t) + " but found " + describe(peek()));
+    }
     return next();
   };
-  const describe = tok => tok.t === "NEWLINE" ? "the end of the line" : tok.t === "EOF" ? "the end of the program"
-    : tok.v !== undefined ? "'" + tok.v + "'" : "'" + tok.t + "'";
+
+  const describe = tok =>
+    tok.t === "NEWLINE" ? "the end of the line" :
+    tok.t === "EOF" ? "the end of the program" :
+    tok.v !== undefined ? "'" + tok.v + "'" : "'" + tok.t + "'";
 
   const bin = (op, l, r) => ({ k: "bin", op, l, r });
   const CMP = ["==", "!=", "<", ">", "<=", ">="];
   const isKw = w => peek().t === "NAME" && peek().v === w;
 
-  // ----- expressions (lowest precedence first) -----
   function parseExpr() { return parseOr(); }
-  function parseOr() { let l = parseAnd(); while (isKw("or")) { next(); l = bin("or", l, parseAnd()); } return l; }
-  function parseAnd() { let l = parseNot(); while (isKw("and")) { next(); l = bin("and", l, parseNot()); } return l; }
-  function parseNot() { if (isKw("not")) { next(); return { k: "not", e: parseNot() }; } return parseCmp(); }
-  function parseCmp() { let l = parseAdd(); for (;;) { if (CMP.includes(peek().t)) l = bin(next().t, l, parseAdd()); else if (isKw("in")) { next(); l = bin("in", l, parseAdd()); } else return l; } }
-  function parseAdd() { let l = parseMul(); while (peek().t === "+" || peek().t === "-") l = bin(next().t, l, parseMul()); return l; }
-  function parseMul() { let l = parseUnary(); while (["*", "/", "%"].includes(peek().t)) l = bin(next().t, l, parseUnary()); return l; }
-  function parseUnary() { if (peek().t === "-") { next(); return bin("-", { k: "num", v: 0 }, parseUnary()); } return parsePostfix(); }
+
+  function parseOr() {
+    let l = parseAnd();
+    while (isKw("or")) {
+      next();
+      l = bin("or", l, parseAnd());
+    }
+    return l;
+  }
+
+  function parseAnd() {
+    let l = parseNot();
+    while (isKw("and")) {
+      next();
+      l = bin("and", l, parseNot());
+    }
+    return l;
+  }
+
+  function parseNot() {
+    if (isKw("not")) {
+      next();
+      return { k: "not", e: parseNot() };
+    }
+    return parseCmp();
+  }
+
+  function parseCmp() {
+    let l = parseAdd();
+    for (;;) {
+      if (CMP.includes(peek().t)) {
+        l = bin(next().t, l, parseAdd());
+      } else if (isKw("in")) {
+        next();
+        l = bin("in", l, parseAdd());
+      } else {
+        return l;
+      }
+    }
+  }
+
+  function parseAdd() {
+    let l = parseMul();
+    while (peek().t === "+" || peek().t === "-") {
+      l = bin(next().t, l, parseMul());
+    }
+    return l;
+  }
+
+  function parseMul() {
+    let l = parseUnary();
+    while (["*", "/", "%"].includes(peek().t)) {
+      l = bin(next().t, l, parseUnary());
+    }
+    return l;
+  }
+
+  function parseUnary() {
+    if (peek().t === "-") {
+      next();
+      return bin("-", { k: "num", v: 0 }, parseUnary());
+    }
+    return parsePostfix();
+  }
+
   function parsePostfix() {
     let e = parsePrimary();
-    while (peek().t === "[") { next(); const i = parseExpr(); expect("]"); e = { k: "index", e, i }; }
+    while (peek().t === "[") {
+      next();
+      const i = parseExpr();
+      expect("]");
+      e = { k: "index", e, i };
+    }
     return e;
   }
+
   function parseList(close) {
     const items = [];
-    if (peek().t !== close) { items.push(parseExpr()); while (peek().t === ",") { next(); items.push(parseExpr()); } }
+    if (peek().t !== close) {
+      items.push(parseExpr());
+      while (peek().t === ",") {
+        next();
+        if (peek().t === close) break;
+        items.push(parseExpr());
+      }
+    }
     expect(close, "'" + close + "'");
     return items;
   }
+
   function parsePrimary() {
     const tok = next();
+
     switch (tok.t) {
-      case "NUMBER": return { k: "num", v: tok.v };
-      case "STRING": return { k: "str", v: tok.v };
-      case "VAR": return { k: "var", n: tok.v };
-      case "(": { const e = parseExpr(); expect(")"); return e; }
-      case "[": return { k: "list", items: parseList("]") };
-      case "{": {
-        const pairs = [];
-        while (peek().t !== "}") {
-          const k = parseExpr(); expect(":", "':' between a key and its value");
-          pairs.push([k, parseExpr()]);
-          if (peek().t === ",") next(); else break;
+      case "NUMBER":
+        return { k: "num", v: tok.v };
+
+      case "STRING":
+        return { k: "str", v: tok.v };
+
+      case "VAR":
+        return { k: "var", n: tok.v };
+
+      case "(":
+        {
+          const e = parseExpr();
+          expect(")");
+          return e;
         }
-        expect("}", "'}'");
-        return { k: "dict", pairs };
-      }
+
+      case "[":
+        return { k: "list", items: parseList("]") };
+
+      case "{":
+        {
+          const pairs = [];
+          while (peek().t !== "}") {
+            const k = parseExpr();
+            expect(":", "':' between a key and its value");
+            pairs.push([k, parseExpr()]);
+            if (peek().t === ",") next();
+            else break;
+          }
+          expect("}", "'}'");
+          return { k: "dict", pairs };
+        }
+
       case "NAME":
-        if (peek().t === "(") { next(); return { k: "cmp", f: tok.v, args: parseList(")") }; }
+        if (peek().t === "(") {
+          next();
+          return { k: "cmp", f: tok.v, args: parseList(")") };
+        }
         return { k: "name", n: tok.v };
-      default: fail("I wasn't expecting " + describe(tok), tok);
+
+      default:
+        fail("I wasn't expecting " + describe(tok), tok);
     }
   }
 
-  // ----- one line of a rule body -----
   function parseGoal() {
     const left = parseExpr();
-    if (left.k === "bin" && CMP.includes(left.op)) return { k: "op", op: left.op, l: left.l, r: left.r };
-    if (peek().t === "=") { next(); return { k: "op", op: "=", l: left, r: parseExpr() }; }
-    if (left.k !== "cmp") fail("this line should look like name(...) or a comparison like ?x > 3");
+
+    if (left.k === "bin" && CMP.includes(left.op)) {
+      return { k: "op", op: left.op, l: left.l, r: left.r };
+    }
+
+    if (peek().t === "=") {
+      next();
+      return { k: "op", op: "=", l: left, r: parseExpr() };
+    }
+
+    if (left.k !== "cmp") {
+      fail("this line should look like name(...) or a comparison like ?x > 3");
+    }
+
     return left;
   }
 
-  // ----- statements -----
   function parseBlock() {
-    expect(":", "':' at the end of the line"); expect("NEWLINE");
-    if (peek().t !== "INDENT") fail("the lines under this need to be indented");
+    expect(":", "':' at the end of the line");
+    expect("NEWLINE");
+
+    if (peek().t !== "INDENT") {
+      fail("the lines under this need to be indented");
+    }
+
     next();
     const body = [];
+
     while (peek().t !== "DEDENT" && peek().t !== "EOF") {
-      if (peek().t === "NEWLINE") { next(); continue; }
+      if (peek().t === "NEWLINE") {
+        next();
+        continue;
+      }
       body.push(parseStmt());
     }
+
     if (peek().t === "DEDENT") next();
     return body;
   }
 
   function parseStmt() {
-    const first = peek(), line = first.line, end = () => expect("NEWLINE");
+    const first = peek();
+    const line = first.line;
+    const end = () => expect("NEWLINE");
+
     if (first.t === "NAME") {
-      const w = first.v, n1 = peek(1).t;
+      const w = first.v;
+      const n1 = peek(1).t;
+
       if (w === "teach" && n1 === "NAME") {
         next();
         const head = parseExpr();
-        if (head.k !== "cmp") fail("a rule needs a name and parentheses, like teach name(?a, ?b):", first);
-        expect(":", "':' at the end of the rule line"); expect("NEWLINE");
-        if (peek().t !== "INDENT") fail("the lines of a rule must be indented under it");
+
+        if (head.k !== "cmp") {
+          fail("a rule needs a name and parentheses, like teach name(?a, ?b):", first);
+        }
+
+        expect(":", "':' at the end of the rule line");
+        expect("NEWLINE");
+
+        if (peek().t !== "INDENT") {
+          fail("the lines of a rule must be indented under it");
+        }
+
         next();
         const body = [];
+
         while (peek().t !== "DEDENT" && peek().t !== "EOF") {
-          if (peek().t === "NEWLINE") { next(); continue; }
-          body.push(parseGoal()); end();
+          if (peek().t === "NEWLINE") {
+            next();
+            continue;
+          }
+          body.push(parseGoal());
+          end();
         }
+
         if (peek().t === "DEDENT") next();
         return { type: "rule", head, body, line };
       }
-      if (w === "wonder" && n1 !== "=") { next(); const goal = parseGoal(); end(); return { type: "wonder", goal, line }; }
-      if (w === "say" && n1 !== "=" && n1 !== "(") { next(); const e = parseExpr(); end(); return { type: "say", e, line }; }
+
+      if (w === "wonder" && n1 !== "=") {
+        next();
+        const goal = parseGoal();
+        end();
+        return { type: "wonder", goal, line };
+      }
+
+      if (w === "say" && n1 !== "=" && n1 !== "(") {
+        next();
+        const e = parseExpr();
+        end();
+        return { type: "say", e, line };
+      }
+
       if (w === "if") {
         next();
         const branches = [{ cond: parseExpr(), body: parseBlock() }];
         let orelse = null;
-        while (isKw("elif")) { next(); branches.push({ cond: parseExpr(), body: parseBlock() }); }
-        if (isKw("else")) { next(); orelse = parseBlock(); }
+
+        while (isKw("elif")) {
+          next();
+          branches.push({ cond: parseExpr(), body: parseBlock() });
+        }
+
+        if (isKw("else")) {
+          next();
+          orelse = parseBlock();
+        }
+
         return { type: "if", branches, orelse, line };
       }
-      if (w === "while") { next(); const cond = parseExpr(); return { type: "while", cond, body: parseBlock(), line }; }
+
+      if (w === "while") {
+        next();
+        const cond = parseExpr();
+        return { type: "while", cond, body: parseBlock(), line };
+      }
+
       if (w === "for") {
         next();
         const v = expect("NAME", "a variable name").v;
+
         if (!isKw("in")) fail("expected the word 'in' after the loop variable");
         next();
+
         const it = parseExpr();
         return { type: "for", v, it, body: parseBlock(), line };
       }
+
       if (w === "def") {
         next();
         const name = expect("NAME", "a function name").v;
         expect("(");
+
         const params = [];
-        if (peek().t !== ")") { params.push(expect("NAME").v); while (peek().t === ",") { next(); params.push(expect("NAME").v); } }
+        if (peek().t !== ")") {
+          params.push(expect("NAME").v);
+          while (peek().t === ",") {
+            next();
+            params.push(expect("NAME").v);
+          }
+        }
+
         expect(")");
         return { type: "def", name, params, body: parseBlock(), line };
       }
-      if (w === "return") { next(); const e = peek().t === "NEWLINE" ? null : parseExpr(); end(); return { type: "return", e, line }; }
+
+      if (w === "return") {
+        next();
+        const e = peek().t === "NEWLINE" ? null : parseExpr();
+        end();
+        return { type: "return", e, line };
+      }
+
       if (w === "try") {
         next();
         const body = parseBlock();
-        if (!isKw("except")) fail("a try needs an except: right under it");
+
+        if (!isKw("except")) {
+          fail("a try needs an except: right under it");
+        }
+
         next();
         return { type: "try", body, handler: parseBlock(), line };
       }
-      if (w === "break" || w === "continue") { next(); end(); return { type: w, line }; }
-      if (n1 === "=") { next(); next(); const e = parseExpr(); end(); return { type: "assign", name: w, e, line }; }
+
+      if (w === "break" || w === "continue") {
+        next();
+        end();
+        return { type: w, line };
+      }
+
+      if (n1 === "=") {
+        next();
+        next();
+        const e = parseExpr();
+        end();
+        return { type: "assign", name: w, e, line };
+      }
+
       if (["+=", "-=", "*=", "/="].includes(n1)) {
-        next(); const op = next().t[0]; const e = parseExpr(); end();
-        return { type: "assign", name: w, e: bin(op, { k: "name", n: w }, e), line };
+        next();
+        const op = next().t[0];
+        const e = parseExpr();
+        end();
+        return {
+          type: "assign",
+          name: w,
+          e: bin(op, { k: "name", n: w }, e),
+          line
+        };
       }
     }
+
     const e = parseExpr();
-    if (peek().t === "=" && e.k === "index") { next(); const v = parseExpr(); end(); return { type: "setindex", e, v, line }; }
+
+    if (peek().t === "=" && e.k === "index") {
+      next();
+      const v = parseExpr();
+      end();
+      return { type: "setindex", e, v, line };
+    }
+
     end();
-    return e.k === "cmp" ? { type: "call", head: e, line } : { type: "expr", e, line };
+    return e.k === "cmp"
+      ? { type: "call", head: e, line }
+      : { type: "expr", e, line };
   }
 
   const stmts = [];
+
   while (peek().t !== "EOF") {
-    if (peek().t === "NEWLINE") { next(); continue; }
+    if (peek().t === "NEWLINE") {
+      next();
+      continue;
+    }
     stmts.push(parseStmt());
   }
+
   return stmts;
 }
 
 // ============================================================
-//  3. SOLVER: unification + backtracking
+// 3. LOGIC SOLVER
+// Facts, rules, and questions using variables.
 // ============================================================
 let VAR_ID = 0;
-class Var { constructor(n) { this.n = n; this.id = ++VAR_ID; } }
 
-let db = [];        // facts and rules
-let globals = {};   // x = 5 style variables
+class Var {
+  constructor(n) {
+    this.n = n;
+    this.id = ++VAR_ID;
+  }
+}
 
-// Turn parsed syntax into live values, giving each ?variable a fresh Var
+let db = [];
+let globals = {};
+
 function rename(a, m) {
   switch (a.k) {
-    case "num": case "str": return a.v;
+    case "num":
+    case "str":
+      return a.v;
+
     case "var":
       if (a.n === "_") return new Var("_");
       return m[a.n] || (m[a.n] = new Var(a.n));
-    case "name": return a.n in globals ? globals[a.n] : a.n;
-    case "cmp": return { f: a.f, args: a.args.map(x => rename(x, m)) };
-    case "bin": return { bin: true, op: a.op, l: rename(a.l, m), r: rename(a.r, m) };
-    default: throw new Error("lists, and/or/not are not allowed inside facts and rules yet");
+
+    case "name":
+      return a.n in globals ? globals[a.n] : a.n;
+
+    case "cmp":
+      return { f: a.f, args: a.args.map(x => rename(x, m)) };
+
+    case "bin":
+      return {
+        bin: true,
+        op: a.op,
+        l: rename(a.l, m),
+        r: rename(a.r, m)
+      };
+
+    default:
+      throw new Error("lists, and/or/not are not allowed inside facts and rules yet");
   }
 }
+
 function renameGoal(g, m) {
-  if (g.k === "op") return { g: "op", op: g.op, l: rename(g.l, m), r: rename(g.r, m) };
+  if (g.k === "op") {
+    return {
+      g: "op",
+      op: g.op,
+      l: rename(g.l, m),
+      r: rename(g.r, m)
+    };
+  }
+
   return { g: "call", f: g.f, args: g.args.map(x => rename(x, m)) };
 }
 
 function walk(t, s) {
-  while (t instanceof Var && s[t.id] !== undefined) t = s[t.id];
+  while (t instanceof Var && s[t.id] !== undefined) {
+    t = s[t.id];
+  }
   return t;
 }
 
-// Evaluate math. Returns undefined if some variable is still unknown.
 function ev(t, s) {
   t = walk(t, s);
   if (t instanceof Var) return undefined;
+
   if (t && t.bin) {
-    const a = ev(t.l, s), b = ev(t.r, s);
+    const a = ev(t.l, s);
+    const b = ev(t.r, s);
+
     if (a === undefined || b === undefined) return undefined;
+
     if (t.op === "+") return a + b;
-    if (typeof a !== "number" || typeof b !== "number") throw new Error("you can only use " + t.op + " on numbers");
+
+    if (typeof a !== "number" || typeof b !== "number") {
+      throw new Error("you can only use " + t.op + " on numbers");
+    }
+
     if (t.op === "-") return a - b;
     if (t.op === "*") return a * b;
     if (t.op === "%") return a % b;
-    if (t.op === "/") { if (b === 0) throw new Error("divided by zero"); return a / b; }
+
+    if (t.op === "/") {
+      if (b === 0) throw new Error("divided by zero");
+      return a / b;
+    }
   }
+
   return t;
 }
 
 function unify(a, b, s) {
-  a = walk(a, s); b = walk(b, s);
-  if (a && a.bin) { a = ev(a, s); if (a === undefined) throw new Error("math on a value that isn't known yet"); }
-  if (b && b.bin) { b = ev(b, s); if (b === undefined) throw new Error("math on a value that isn't known yet"); }
-  if (a instanceof Var) return a === b ? s : { ...s, [a.id]: b };
-  if (b instanceof Var) return { ...s, [b.id]: a };
+  a = walk(a, s);
+  b = walk(b, s);
+
+  if (a && a.bin) {
+    a = ev(a, s);
+    if (a === undefined) throw new Error("math on a value that isn't known yet");
+  }
+
+  if (b && b.bin) {
+    b = ev(b, s);
+    if (b === undefined) throw new Error("math on a value that isn't known yet");
+  }
+
+  if (a instanceof Var) {
+    return a === b ? s : { ...s, [a.id]: b };
+  }
+
+  if (b instanceof Var) {
+    return { ...s, [b.id]: a };
+  }
+
   if (a && b && typeof a === "object" && typeof b === "object") {
     if (a.f !== b.f || a.args.length !== b.args.length) return null;
-    for (let i = 0; i < a.args.length; i++) { s = unify(a.args[i], b.args[i], s); if (!s) return null; }
+
+    for (let i = 0; i < a.args.length; i++) {
+      s = unify(a.args[i], b.args[i], s);
+      if (!s) return null;
+    }
+
     return s;
   }
+
   return a === b ? s : null;
 }
 
-function doEquals(g, s) {          // ?x = something
-  const lv = ev(g.l, s), rv = ev(g.r, s);
+function doEquals(g, s) {
+  const lv = ev(g.l, s);
+  const rv = ev(g.r, s);
+
   if (lv !== undefined && rv !== undefined) return unify(lv, rv, s);
   if (rv !== undefined) return unify(g.l, rv, s);
   if (lv !== undefined) return unify(g.r, lv, s);
+
   return unify(g.l, g.r, s);
 }
 
-function doCompare(g, s) {         // ==  !=  <  >  <=  >=
-  const a = ev(g.l, s), b = ev(g.r, s);
-  if (a === undefined || b === undefined) throw new Error("a comparison needs both sides to be known");
+function doCompare(g, s) {
+  const a = ev(g.l, s);
+  const b = ev(g.r, s);
+
+  if (a === undefined || b === undefined) {
+    throw new Error("a comparison needs both sides to be known");
+  }
+
   switch (g.op) {
     case "==": return unify(a, b, s) !== null;
     case "!=": return unify(a, b, s) === null;
@@ -467,158 +826,364 @@ function doCompare(g, s) {         // ==  !=  <  >  <=  >=
 }
 
 function* solve(goals, s, ctx) {
-  if (goals.length === 0) { yield s; return; }
-  if (++ctx.steps > 200000) throw new Error("too many steps. Is there a rule that loops forever?");
-  const [g, ...rest] = goals;
-
-  if (g.g === "op") {
-    if (g.op === "=") { const s2 = doEquals(g, s); if (s2) yield* solve(rest, s2, ctx); }
-    else if (doCompare(g, s)) yield* solve(rest, s, ctx);
+  if (goals.length === 0) {
+    yield s;
     return;
   }
 
-  if (!db.some(c => c.head.f === g.f)) throw new Error('nothing has been taught about "' + g.f + '". Check the spelling.');
+  if (++ctx.steps > 200000) {
+    throw new Error("too many steps. Is there a rule that loops forever?");
+  }
+
+  const [g, ...rest] = goals;
+
+  if (g.g === "op") {
+    if (g.op === "=") {
+      const s2 = doEquals(g, s);
+      if (s2) yield* solve(rest, s2, ctx);
+    } else if (doCompare(g, s)) {
+      yield* solve(rest, s, ctx);
+    }
+    return;
+  }
+
+  if (!db.some(c => c.head.f === g.f)) {
+    throw new Error('nothing has been taught about "' + g.f + '". Check the spelling.');
+  }
+
   for (const c of db) {
     if (c.head.f !== g.f || c.head.args.length !== g.args.length) continue;
+
     const m = {};
     const head = rename(c.head, m);
     const body = c.body.map(x => renameGoal(x, m));
+
     let s2 = s;
-    for (let i = 0; i < g.args.length && s2; i++) s2 = unify(g.args[i], head.args[i], s2);
+
+    for (let i = 0; i < g.args.length && s2; i++) {
+      s2 = unify(g.args[i], head.args[i], s2);
+    }
+
     if (s2) yield* solve([...body, ...rest], s2, ctx);
   }
 }
 
 // ============================================================
-//  4. RUNNING A PROGRAM
+// 4. RUNNING A PROGRAM
 // ============================================================
 function show(t, s) {
   t = walk(t, s);
-  if (t && t.bin) { const v = ev(t, s); return v === undefined ? "?" : show(v, s); }
+
+  if (t && t.bin) {
+    const v = ev(t, s);
+    return v === undefined ? "?" : show(v, s);
+  }
+
   if (t instanceof Var) return "?" + t.n;
   if (typeof t === "string") return JSON.stringify(t);
-  if (t && typeof t === "object") return t.f + "(" + t.args.map(x => show(x, s)).join(", ") + ")";
+
+  if (t && typeof t === "object") {
+    return t.f + "(" + t.args.map(x => show(x, s)).join(", ") + ")";
+  }
+
   return String(t);
 }
 
-let FUNCS = {}, OUT = [], STEPS = 0, DEPTH = 0;
+let FUNCS = {}, OUT = [], STEPS = 0, DEPTH = 0, LOOP_DEPTH = 0;
 
 function disp(v) {
   if (typeof v === "string") return v;
-  if (Array.isArray(v)) return "[" + v.map(x => typeof x === "string" ? JSON.stringify(x) : disp(x)).join(", ") + "]";
-  if (v instanceof Map) return "{" + [...v].map(([k, x]) => (typeof k === "string" ? JSON.stringify(k) : disp(k)) + ": " + (typeof x === "string" ? JSON.stringify(x) : disp(x))).join(", ") + "}";
+
+  if (Array.isArray(v)) {
+    return "[" + v.map(x => typeof x === "string" ? JSON.stringify(x) : disp(x)).join(", ") + "]";
+  }
+
+  if (v instanceof Map) {
+    return "{" + [...v].map(([k, x]) =>
+      (typeof k === "string" ? JSON.stringify(k) : disp(k)) +
+      ": " +
+      (typeof x === "string" ? JSON.stringify(x) : disp(x))
+    ).join(", ") + "}";
+  }
+
   if (v === null || v === undefined) return "nothing";
   if (typeof v === "object") return show(v, {});
   return String(v);
 }
-const truthy = v => v instanceof Map ? v.size > 0 : Array.isArray(v) ? v.length > 0 : !!v;
-const J = v => JSON.stringify(v, (k, x) => x instanceof Map ? [...x] : x);
-const tick = () => { if (++STEPS > 2000000) throw new Error("the program ran too long. Is there a loop that never ends?"); };
 
-// ---------- a small neural network ----------
+const truthy = v =>
+  v instanceof Map ? v.size > 0 :
+  Array.isArray(v) ? v.length > 0 :
+  !!v;
+
+const J = v => JSON.stringify(v, (k, x) => x instanceof Map ? [...x] : x);
+
+const tick = () => {
+  if (++STEPS > 2000000) {
+    throw new Error("the program ran too long. Is there a loop that never ends?");
+  }
+};
+
+// ------------------ Neural network ------------------
 const sig = x => 1 / (1 + Math.exp(-x));
+
 function makeNet(sizes) {
-  if (sizes.length < 2 || sizes.some(n => !Number.isInteger(n) || n < 1)) throw new Error("network needs whole numbers, like network(2, 8, 1)");
+  if (sizes.length < 2 || sizes.some(n => !Number.isInteger(n) || n < 1)) {
+    throw new Error("network needs whole-number layer sizes, like network(2, 8, 1)");
+  }
+
+  if (sizes.length > 6 || sizes.some(n => n > 256) ||
+      sizes.reduce((a, n) => a + n, 0) > 512) {
+    throw new Error("that network is too large for this browser demo; try smaller layers, like network(2, 8, 1)");
+  }
+
   const W = [], B = [];
+
   for (let l = 1; l < sizes.length; l++) {
-    W.push(Array.from({ length: sizes[l] }, () => Array.from({ length: sizes[l - 1] }, () => (Math.random() - 0.5) * 2)));
+    W.push(Array.from({ length: sizes[l] }, () =>
+      Array.from({ length: sizes[l - 1] }, () => (Math.random() - 0.5) * 2)
+    ));
     B.push(Array.from({ length: sizes[l] }, () => 0));
   }
+
   return { f: "network", args: sizes, W, B };
 }
-function forward(net, input) {                       // run numbers through the layers
+
+function forward(net, input) {
   const acts = [input];
+
   for (let l = 0; l < net.W.length; l++) {
     const last = l === net.W.length - 1;
+
     acts.push(net.W[l].map((row, j) => {
       let s = net.B[l][j];
-      for (let i = 0; i < row.length; i++) s += row[i] * acts[l][i];
+
+      for (let i = 0; i < row.length; i++) {
+        s += row[i] * acts[l][i];
+      }
+
       return last ? sig(s) : Math.tanh(s);
     }));
   }
+
   return acts;
 }
+
 function prepExamples(net, ex) {
-  if (!net || net.f !== "network") throw new Error("the first value must be a network made with network(...)");
-  if (!Array.isArray(ex) || ex.length === 0) throw new Error("examples must be a list like [[[0, 0], 0], [[1, 1], 1]]");
-  const nIn = net.args[0], nOut = net.args[net.args.length - 1];
+  if (!net || net.f !== "network") {
+    throw new Error("the first value must be a network made with network(...)");
+  }
+
+  if (!Array.isArray(ex) || ex.length === 0) {
+    throw new Error("examples must be a list like [[[0, 0], 0], [[1, 1], 1]]");
+  }
+
+  const nIn = net.args[0];
+  const nOut = net.args[net.args.length - 1];
+
   return ex.map(p => {
-    if (!Array.isArray(p) || p.length !== 2 || !Array.isArray(p[0])) throw new Error("each example needs the form [inputs, answer], like [[0, 1], 1]");
+    if (!Array.isArray(p) || p.length !== 2 || !Array.isArray(p[0])) {
+      throw new Error("each example needs the form [inputs, answer], like [[0, 1], 1]");
+    }
+
     const want = Array.isArray(p[1]) ? p[1] : [p[1]];
-    if (p[0].length !== nIn || want.length !== nOut) throw new Error("this network has " + nIn + " input(s) and " + nOut + " output(s), but an example doesn't match");
+
+    if (p[0].length !== nIn || want.length !== nOut) {
+      throw new Error("this network has " + nIn + " input(s) and " + nOut + " output(s), but an example doesn't match");
+    }
+
     return [p[0], want];
   });
 }
+
 function avgError(net, ex) {
   let total = 0;
-  for (const [inp, want] of ex) { const o = forward(net, inp).pop(); total += o.reduce((s, v, j) => s + (v - want[j]) ** 2, 0) / o.length; }
+
+  for (const [inp, want] of ex) {
+    const o = forward(net, inp).pop();
+    total += o.reduce((s, v, j) => s + (v - want[j]) ** 2, 0) / o.length;
+  }
+
   return total / ex.length;
 }
-function trainNet(net, ex, rounds, rate) {          // learn by nudging the numbers (backpropagation)
+
+function trainNet(net, ex, rounds, rate) {
   const L = net.W.length;
-  for (let r = 0; r < rounds; r++) for (const [inp, want] of ex) {
-    const acts = forward(net, inp);
-    let delta = acts[L].map((o, j) => o - want[j]);
-    for (let l = L - 1; l >= 0; l--) {
-      const prev = acts[l];
-      const nextDelta = l > 0 ? prev.map((a, i) => (1 - a * a) * net.W[l].reduce((s, row, j) => s + row[i] * delta[j], 0)) : null;
-      net.W[l].forEach((row, j) => { for (let i = 0; i < row.length; i++) row[i] -= rate * delta[j] * prev[i]; net.B[l][j] -= rate * delta[j]; });
-      delta = nextDelta;
+
+  for (let r = 0; r < rounds; r++) {
+    for (const [inp, want] of ex) {
+      const acts = forward(net, inp);
+      let delta = acts[L].map((o, j) => o - want[j]);
+
+      for (let l = L - 1; l >= 0; l--) {
+        const prev = acts[l];
+
+        const nextDelta = l > 0
+          ? prev.map((a, i) =>
+              (1 - a * a) *
+              net.W[l].reduce((s, row, j) => s + row[i] * delta[j], 0)
+            )
+          : null;
+
+        net.W[l].forEach((row, j) => {
+          for (let i = 0; i < row.length; i++) {
+            row[i] -= rate * delta[j] * prev[i];
+          }
+          net.B[l][j] -= rate * delta[j];
+        });
+
+        delta = nextDelta;
+      }
     }
   }
 }
 
 let CTX = null;
+
 function ctx() {
   if (!CTX) {
-    const c = document.getElementById("canvas"); c.hidden = false;
-    CTX = c.getContext("2d"); CTX.fillStyle = CTX.strokeStyle = "#f2b84b"; CTX.font = "20px sans-serif";
+    const c = document.getElementById("canvas");
+    c.hidden = false;
+    CTX = c.getContext("2d");
+    CTX.fillStyle = CTX.strokeStyle = "#f2b84b";
+    CTX.font = "20px sans-serif";
   }
   return CTX;
 }
+
 const BUILTINS = {
-  print: (...a) => { OUT.push(a.map(disp).join(" ")); return null; },
+  print: (...a) => {
+    OUT.push(a.map(disp).join(" "));
+    return null;
+  },
+
   len: x => x instanceof Map ? x.size : x.length,
   say: (...a) => BUILTINS.print(...a),
   list: (...a) => a,
   dict: () => new Map(),
+
   network: (...sizes) => makeNet(sizes),
+  brain: (...sizes) => makeNet(sizes),
+
   train: (m, ex, rounds = 1000, rate = 0.5) => {
     const e = prepExamples(m, ex);
-    if (rounds * e.length > 3000000) throw new Error("that is too many rounds for one train(...). Try fewer.");
+
+    if (!Number.isInteger(rounds) || rounds < 1) {
+      throw new Error("training rounds must be a positive whole number");
+    }
+
+    if (rounds * e.length > 3000000) {
+      throw new Error("that is too many rounds for one train(...). Try fewer.");
+    }
+
+    if (typeof rate !== "number" || !Number.isFinite(rate) ||
+        rate <= 0 || rate > 5) {
+      throw new Error("learning speed must be above 0 and at most 5");
+    }
+
     trainNet(m, e, rounds, rate);
     return avgError(m, e);
   },
+
+  learn: (m, ex, rounds = 1000, rate = 0.5) =>
+    BUILTINS.train(m, ex, rounds, rate),
+
   predict: (m, inp) => {
-    if (!m || m.f !== "network") throw new Error("the first value must be a network made with network(...)");
-    if (!Array.isArray(inp) || inp.length !== m.args[0]) throw new Error("this network takes " + m.args[0] + " input number(s), like predict(brain, [1, 0])");
+    if (!m || m.f !== "network") {
+      throw new Error("the first value must be a network made with network(...)");
+    }
+
+    if (!Array.isArray(inp) || inp.length !== m.args[0]) {
+      throw new Error("this network takes " + m.args[0] + " input number(s), like predict(brain, [1, 0])");
+    }
+
     const o = forward(m, inp).pop();
     return o.length === 1 ? o[0] : o;
   },
+
+  guess: (m, inp) => BUILTINS.predict(m, inp),
+
   error: (m, ex) => avgError(m, prepExamples(m, ex)),
   argmax: l => l.indexOf(Math.max(...l)),
+
   save: (name, m) => {
-    if (!m || m.f !== "network") throw new Error("save needs a network, like save(\"mybrain\", brain)");
-    localStorage.setItem("fd_brain_" + name, JSON.stringify({ s: m.args, W: m.W, B: m.B })); return name;
+    if (!m || m.f !== "network") {
+      throw new Error('save needs a network, like save("mybrain", brain)');
+    }
+
+    localStorage.setItem("fd_brain_" + name, JSON.stringify({
+      s: m.args, W: m.W, B: m.B
+    }));
+
+    return name;
   },
+
   load: name => {
     const s = localStorage.getItem("fd_brain_" + name);
-    if (!s) throw new Error('there is no saved brain called "' + name + '"');
-    const o = JSON.parse(s); return { f: "network", args: o.s, W: o.W, B: o.B };
+
+    if (!s) {
+      throw new Error('there is no saved brain called "' + name + '"');
+    }
+
+    const o = JSON.parse(s);
+    return { f: "network", args: o.s, W: o.W, B: o.B };
   },
+
   saved: name => localStorage.getItem("fd_brain_" + name) !== null,
+
   stop: m => { throw new Error(disp(m)); },
+
   slice: (x, a, b) => x.slice(a, b),
   pick: l => l[Math.floor(Math.random() * l.length)],
   shuffle: l => [...l].sort(() => Math.random() - 0.5),
   chance: () => Math.random(),
-  background: c => { const x = ctx(); x.fillStyle = c; x.fillRect(0, 0, 480, 320); x.fillStyle = x.strokeStyle = "#f2b84b"; return null; },
-  color: c => { const x = ctx(); x.fillStyle = x.strokeStyle = c; return null; },
-  rect: (a, b, w, h) => { ctx().fillRect(a, b, w, h); return null; },
-  circle: (a, b, r) => { const x = ctx(); x.beginPath(); x.arc(a, b, r, 0, 7); x.fill(); return null; },
-  line: (a, b, c, d) => { const x = ctx(); x.beginPath(); x.moveTo(a, b); x.lineTo(c, d); x.stroke(); return null; },
-  write: (s, a, b) => { ctx().fillText(disp(s), a, b); return null; },
-  clear: () => { ctx().clearRect(0, 0, 480, 320); return null; },
+
+  background: c => {
+    const x = ctx();
+    x.fillStyle = c;
+    x.fillRect(0, 0, 480, 320);
+    x.fillStyle = x.strokeStyle = "#f2b84b";
+    return null;
+  },
+
+  color: c => {
+    const x = ctx();
+    x.fillStyle = x.strokeStyle = c;
+    return null;
+  },
+
+  rect: (a, b, w, h) => {
+    ctx().fillRect(a, b, w, h);
+    return null;
+  },
+
+  circle: (a, b, r) => {
+    const x = ctx();
+    x.beginPath();
+    x.arc(a, b, r, 0, 7);
+    x.fill();
+    return null;
+  },
+
+  line: (a, b, c, d) => {
+    const x = ctx();
+    x.beginPath();
+    x.moveTo(a, b);
+    x.lineTo(c, d);
+    x.stroke();
+    return null;
+  },
+
+  write: (s, a, b) => {
+    ctx().fillText(disp(s), a, b);
+    return null;
+  },
+
+  clear: () => {
+    ctx().clearRect(0, 0, 480, 320);
+    return null;
+  },
+
   keys: d => [...d.keys()],
   values: d => [...d.values()],
   join: (l, sep = "") => l.map(disp).join(sep),
@@ -627,13 +1192,30 @@ const BUILTINS = {
   sort: l => [...l].sort((a, b) => a < b ? -1 : a > b ? 1 : 0),
   reverse: l => [...l].reverse(),
   pop: l => l.pop(),
+
   round: (x, d = 0) => Math.round(x * 10 ** d) / 10 ** d,
-  floor: x => Math.floor(x), ceil: x => Math.ceil(x), sqrt: x => Math.sqrt(x),
+  floor: x => Math.floor(x),
+  ceil: x => Math.ceil(x),
+  sqrt: x => Math.sqrt(x),
   power: (a, b) => a ** b,
   random: n => Math.floor(Math.random() * n),
-  type: x => x && x.f === "network" ? "network" : x instanceof Map ? "dictionary" : Array.isArray(x) ? "list" : typeof x === "number" ? "number" : typeof x === "string" ? "text" : typeof x === "boolean" ? "yes/no" : "nothing",
+
+  type: x =>
+    x && x.f === "network" ? "network" :
+    x instanceof Map ? "dictionary" :
+    Array.isArray(x) ? "list" :
+    typeof x === "number" ? "number" :
+    typeof x === "string" ? "text" :
+    typeof x === "boolean" ? "yes/no" : "nothing",
+
   str: x => disp(x),
-  num: x => { const n = Number(x); if (isNaN(n)) throw new Error('"' + x + '" is not a number'); return n; },
+
+  num: x => {
+    const n = Number(x);
+    if (isNaN(n)) throw new Error('"' + x + '" is not a number');
+    return n;
+  },
+
   int: x => Math.trunc(Number(x)),
   abs: x => Math.abs(x),
   sum: l => l.reduce((a, b) => a + b, 0),
@@ -642,59 +1224,125 @@ const BUILTINS = {
   append: (l, x) => { l.push(x); return l; },
   upper: s => s.toUpperCase(),
   lower: s => s.toLowerCase(),
-  input: q => { const r = prompt(q); return r === null ? "" : r; },
+
+  input: q => {
+    const r = prompt(q);
+    return r === null ? "" : r;
+  },
+
   range: (a, b, c = 1) => {
-    if (b === undefined) { b = a; a = 0; }
+    if (b === undefined) {
+      b = a;
+      a = 0;
+    }
+
     const r = [];
-    for (let i = a; c > 0 ? i < b : i > b; i += c) { r.push(i); if (r.length > 1000000) throw new Error("range is too big"); }
+
+    for (let i = a; c > 0 ? i < b : i > b; i += c) {
+      r.push(i);
+      if (r.length > 1000000) throw new Error("range is too big");
+    }
+
     return r;
   }
 };
 
 function callFn(name, args, env) {
   const f = FUNCS[name];
+
   if (f) {
-    if (args.length !== f.params.length) throw new Error(name + " needs " + f.params.length + " value(s) but got " + args.length);
-    if (++DEPTH > 1500) throw new Error("too much recursion in " + name);
-    const scope = Object.create(globals);
-    f.params.forEach((p, i) => scope[p] = args[i]);
-    const r = execBlock(f.body, scope);
-    DEPTH--;
-    return r && r.s === "ret" ? r.v : null;
+    if (args.length !== f.params.length) {
+      throw new Error(name + " needs " + f.params.length + " value(s) but got " + args.length);
+    }
+
+    if (++DEPTH > 1500) {
+      DEPTH--;
+      throw new Error("too much recursion in " + name);
+    }
+
+    try {
+      const scope = Object.create(globals);
+      f.params.forEach((p, i) => scope[p] = args[i]);
+
+      const r = execBlock(f.body, scope);
+      return r && r.s === "ret" ? r.v : null;
+    } finally {
+      DEPTH--;
+    }
   }
+
   if (BUILTINS[name]) return BUILTINS[name](...args);
   throw new Error('there is no function called "' + name + '"');
 }
 
 function evalG(a, env) {
   switch (a.k) {
-    case "num": case "str": return a.v;
+    case "num":
+    case "str":
+      return a.v;
+
     case "name":
       if (a.n in env) return env[a.n];
       return a.n === "true" ? true : a.n === "false" ? false : a.n;
-    case "var": throw new Error("?" + a.n + " only works in facts, rules and wonder");
-    case "list": return a.items.map(x => evalG(x, env));
-    case "dict": return new Map(a.pairs.map(([k, v]) => [evalG(k, env), evalG(v, env)]));
+
+    case "var":
+      throw new Error("?" + a.n + " only works in facts, rules and wonder");
+
+    case "list":
+      return a.items.map(x => evalG(x, env));
+
+    case "dict":
+      return new Map(a.pairs.map(([k, v]) => [evalG(k, env), evalG(v, env)]));
+
     case "index": {
-      const l = evalG(a.e, env), i = evalG(a.i, env);
-      if (l instanceof Map) { if (!l.has(i)) throw new Error("the dictionary has no key " + disp(i)); return l.get(i); }
-      if (!(typeof l === "string" || Array.isArray(l))) throw new Error("you can only use [ ] on a list or text");
-      if (!Number.isInteger(i) || i < 0 || i >= l.length) throw new Error("position " + disp(i) + " is outside the list (it has " + l.length + " items)");
+      const l = evalG(a.e, env);
+      const i = evalG(a.i, env);
+
+      if (l instanceof Map) {
+        if (!l.has(i)) throw new Error("the dictionary has no key " + disp(i));
+        return l.get(i);
+      }
+
+      if (!(typeof l === "string" || Array.isArray(l))) {
+        throw new Error("you can only use [ ] on a list or text");
+      }
+
+      if (!Number.isInteger(i) || i < 0 || i >= l.length) {
+        throw new Error("position " + disp(i) + " is outside the list (it has " + l.length + " items)");
+      }
+
       return l[i];
     }
-    case "not": return !truthy(evalG(a.e, env));
-    case "cmp": return callFn(a.f, a.args.map(x => evalG(x, env)), env);
+
+    case "not":
+      return !truthy(evalG(a.e, env));
+
+    case "cmp":
+      return callFn(a.f, a.args.map(x => evalG(x, env)), env);
+
     case "bin": {
-      if (a.op === "and") { const l = evalG(a.l, env); return truthy(l) ? evalG(a.r, env) : l; }
-      if (a.op === "or") { const l = evalG(a.l, env); return truthy(l) ? l : evalG(a.r, env); }
-      const l = evalG(a.l, env), r = evalG(a.r, env);
+      if (a.op === "and") {
+        const l = evalG(a.l, env);
+        return truthy(l) ? evalG(a.r, env) : l;
+      }
+
+      if (a.op === "or") {
+        const l = evalG(a.l, env);
+        return truthy(l) ? l : evalG(a.r, env);
+      }
+
+      const l = evalG(a.l, env);
+      const r = evalG(a.r, env);
+
       if (a.op === "in") {
         if (r instanceof Map) return r.has(l);
         if (typeof r === "string") return r.includes(String(l));
         if (Array.isArray(r)) return r.some(x => J(x) === J(l));
         throw new Error("'in' needs text, a list, or a dictionary on the right");
       }
+
       const same = J(l) === J(r);
+
       switch (a.op) {
         case "==": return same;
         case "!=": return !same;
@@ -702,22 +1350,34 @@ function evalG(a, env) {
         case ">": return l > r;
         case "<=": return l <= r;
         case ">=": return l >= r;
+
         case "+":
           if (Array.isArray(l) && Array.isArray(r)) return [...l, ...r];
           if (typeof l === "string" || typeof r === "string") return disp(l) + disp(r);
       }
-      if (typeof l !== "number" || typeof r !== "number") throw new Error("you can only use " + a.op + " on numbers");
+
+      if (typeof l !== "number" || typeof r !== "number") {
+        throw new Error("you can only use " + a.op + " on numbers");
+      }
+
       if (a.op === "+") return l + r;
       if (a.op === "-") return l - r;
       if (a.op === "*") return l * r;
       if (a.op === "%") return l % r;
-      if (a.op === "/") { if (r === 0) throw new Error("divided by zero"); return l / r; }
+
+      if (a.op === "/") {
+        if (r === 0) throw new Error("divided by zero");
+        return l / r;
+      }
     }
   }
 }
 
 function execBlock(stmts, env) {
-  for (const st of stmts) { const r = exec(st, env); if (r) return r; }
+  for (const st of stmts) {
+    const r = exec(st, env);
+    if (r) return r;
+  }
 }
 
 function exec(st, env) {
@@ -727,61 +1387,138 @@ function exec(st, env) {
         if (FUNCS[st.head.f] || BUILTINS[st.head.f]) evalG(st.head, env);
         else db.push({ head: st.head, body: [] });
         return;
-      case "rule": db.push({ head: st.head, body: st.body }); return;
-      case "assign": env[st.name] = evalG(st.e, env); return;
-      case "say": OUT.push(disp(evalG(st.e, env))); return;
-      case "expr": evalG(st.e, env); return;
-      case "def": FUNCS[st.name] = st; return;
-      case "return": return { s: "ret", v: st.e ? evalG(st.e, env) : null };
-      case "break": return { s: "break" };
-      case "continue": return;
+
+      case "rule":
+        db.push({ head: st.head, body: st.body });
+        return;
+
+      case "assign":
+        env[st.name] = evalG(st.e, env);
+        return;
+
+      case "say":
+        OUT.push(disp(evalG(st.e, env)));
+        return;
+
+      case "expr":
+        evalG(st.e, env);
+        return;
+
+      case "def":
+        FUNCS[st.name] = st;
+        return;
+
+      case "return":
+        return { s: "ret", v: st.e ? evalG(st.e, env) : null };
+
+      case "break":
+        if (LOOP_DEPTH < 1) throw new Error("break only works inside a for or while loop");
+        return { s: "break" };
+
+      case "continue":
+        if (LOOP_DEPTH < 1) throw new Error("continue only works inside a for or while loop");
+        return { s: "continue" };
+
       case "setindex": {
-        const l = evalG(st.e.e, env), i = evalG(st.e.i, env);
-        if (l instanceof Map) { l.set(i, evalG(st.v, env)); return; }
-        if (!Array.isArray(l) || !Number.isInteger(i) || i < 0 || i >= l.length) throw new Error("can't set that position");
-        l[i] = evalG(st.v, env); return;
+        const l = evalG(st.e.e, env);
+        const i = evalG(st.e.i, env);
+
+        if (l instanceof Map) {
+          l.set(i, evalG(st.v, env));
+          return;
+        }
+
+        if (!Array.isArray(l) || !Number.isInteger(i) || i < 0 || i >= l.length) {
+          throw new Error("can't set that position");
+        }
+
+        l[i] = evalG(st.v, env);
+        return;
       }
-      case "if": {
-        for (const b of st.branches) if (truthy(evalG(b.cond, env))) return execBlock(b.body, env);
+
+      case "if":
+        for (const b of st.branches) {
+          if (truthy(evalG(b.cond, env))) return execBlock(b.body, env);
+        }
         return st.orelse ? execBlock(st.orelse, env) : undefined;
-      }
+
       case "while":
         while (truthy(evalG(st.cond, env))) {
           tick();
-          const r = execBlock(st.body, env);
+          LOOP_DEPTH++;
+
+          let r;
+          try {
+            r = execBlock(st.body, env);
+          } finally {
+            LOOP_DEPTH--;
+          }
+
           if (r && r.s === "break") break;
           if (r && r.s === "ret") return r;
+          if (r && r.s === "continue") continue;
         }
         return;
+
       case "for": {
         let items = evalG(st.it, env);
+
         if (typeof items === "string") items = items.split("");
         if (items instanceof Map) items = [...items.keys()];
-        if (!Array.isArray(items)) throw new Error("for needs a list, text, or range(...) after 'in'");
+
+        if (!Array.isArray(items)) {
+          throw new Error("for needs a list, text, or range(...) after 'in'");
+        }
+
         for (const x of items) {
           tick();
           env[st.v] = x;
-          const r = execBlock(st.body, env);
+          LOOP_DEPTH++;
+
+          let r;
+          try {
+            r = execBlock(st.body, env);
+          } finally {
+            LOOP_DEPTH--;
+          }
+
           if (r && r.s === "break") break;
           if (r && r.s === "ret") return r;
+          if (r && r.s === "continue") continue;
         }
         return;
       }
+
       case "try": {
         const depth = DEPTH;
-        try { return execBlock(st.body, env); }
-        catch (e) { DEPTH = depth; env.problem = e.message.replace(/^line \d+: /, ""); return execBlock(st.handler, env); }
+
+        try {
+          return execBlock(st.body, env);
+        } catch (e) {
+          DEPTH = depth;
+          env.problem = e.message.replace(/^line \d+: /, "");
+          return execBlock(st.handler, env);
+        }
       }
+
       case "wonder": {
         const m = {};
         const goal = renameGoal(st.goal, m);
         const names = Object.keys(m);
         let count = 0;
+
         for (const s of solve([goal], {}, { steps: 0 })) {
           count++;
-          OUT.push(names.length ? names.map(n => "?" + n + " = " + show(m[n], s)).join(", ") : "yes");
-          if (count >= 100) { OUT.push("(stopped after 100 answers)"); break; }
+          OUT.push(names.length
+            ? names.map(n => "?" + n + " = " + show(m[n], s)).join(", ")
+            : "yes");
+
+          if (count >= 100) {
+            OUT.push("(stopped after 100 answers)");
+            break;
+          }
         }
+
         if (count === 0) OUT.push("no");
         return;
       }
@@ -793,20 +1530,31 @@ function exec(st, env) {
 }
 
 function interpret(src) {
-  CTX = null; document.getElementById("canvas").hidden = true;
-  db = []; globals = Object.create(null); FUNCS = {}; OUT = []; STEPS = 0; DEPTH = 0;
+  CTX = null;
+  document.getElementById("canvas").hidden = true;
+  db = [];
+  globals = Object.create(null);
+  FUNCS = {};
+  OUT = [];
+  STEPS = 0;
+  DEPTH = 0;
+  LOOP_DEPTH = 0;
+
   execBlock(parse(lex(src)), globals);
   return OUT.length ? OUT.join("\n") : "(done. Nothing was printed)";
 }
 
 // ============================================================
-//  5. THE IDE
+// 5. THE EDITOR
 // ============================================================
 const codeBox = document.getElementById("code");
 const outBox = document.getElementById("output");
 
 function run() {
-  try { localStorage.setItem("fd_code", codeBox.value); } catch (e) {}
+  try {
+    localStorage.setItem("fd_code", codeBox.value);
+  } catch (e) {}
+
   try {
     outBox.className = "";
     outBox.textContent = interpret(codeBox.value);
@@ -818,23 +1566,36 @@ function run() {
 
 function loadExample() {
   const sel = document.getElementById("examples");
-  if (EXAMPLES[sel.value]) { codeBox.value = EXAMPLES[sel.value]; run(); }
+
+  if (EXAMPLES[sel.value]) {
+    codeBox.value = EXAMPLES[sel.value];
+    run();
+  }
+
   sel.value = "";
 }
 
 codeBox.addEventListener("keydown", e => {
   if (e.key === "Tab") {
     e.preventDefault();
-    const a = codeBox.selectionStart, b = codeBox.selectionEnd;
-    codeBox.value = codeBox.value.slice(0, a) + "    " + codeBox.value.slice(b);
+
+    const a = codeBox.selectionStart;
+    const b = codeBox.selectionEnd;
+
+    codeBox.value =
+      codeBox.value.slice(0, a) +
+      "    " +
+      codeBox.value.slice(b);
+
     codeBox.selectionStart = codeBox.selectionEnd = a + 4;
   } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault(); run();
+    e.preventDefault();
+    run();
   }
 });
 
 // ============================================================
-//  COMMANDS PAGE (click any example to copy it into the editor)
+// COMMANDS GUIDE
 // ============================================================
 const REF = [
 ["The basics", [
@@ -842,28 +1603,28 @@ const REF = [
  [`# this is a note`, "Anything after # is ignored. Use it to explain your code."],
  [`x = 5\nname = "sam"`, "Saves a value under a name. Text goes in quotes, numbers don't."],
  [`x += 1`, "Changes a saved number. Also -=, *=, /=."],
- [`age = input("How old are you?")`, "Pops up a box and saves what you type (as text)."],
+ [`age = input("How old are you?")`, "Pops up a box and saves what you type (as text)."]
 ]],
 ["Math", [
  [`say(2 + 3 * 4)`, "+ add, - subtract, * multiply, / divide, % remainder. Brackets work: (2 + 3) * 4."],
  [`say(power(2, 10))`, "2 to the power of 10."],
  [`say(round(3.14159, 2))`, "Rounds a number. Also floor(x), ceil(x), sqrt(x), abs(x)."],
- [`say(random(10))`, "A random whole number from 0 to 9."],
+ [`say(random(10))`, "A random whole number from 0 to 9."]
 ]],
 ["Making choices", [
  [`if x > 3:\n    say("big")\nelif x == 3:\n    say("three")\nelse:\n    say("small")`, "Runs the indented lines only when the check is true. The lines under it must be indented (press Tab)."],
  [`if x > 1 and not x == 5:`, "Combine checks with and, or, not. Compare with == != < > <= >=."],
- [`if "a" in "cat":`, "'in' checks if something is inside text, a list, or a dictionary."],
+ [`if "a" in "cat":`, "'in' checks if something is inside text, a list, or a dictionary."]
 ]],
 ["Loops", [
  [`for i in range(1, 6):\n    say(i)`, "Repeats for each number. range(1, 6) gives 1 to 5. range(5) gives 0 to 4."],
  [`for fruit in ["apple", "pear"]:\n    say(fruit)`, "Goes through every item in a list. Also works on text (each letter)."],
  [`while x < 10:\n    x += 1`, "Repeats while the check stays true."],
- [`break`, "Stops a loop early. continue skips to the next round."],
+ [`break`, "Stops a loop early. continue skips to the next round."]
 ]],
 ["Functions", [
  [`def double(n):\n    return n * 2\n\nsay(double(4))`, "Makes your own command. def names it, return gives back an answer."],
- [`def fib(n):\n    if n < 2:\n        return n\n    return fib(n - 1) + fib(n - 2)`, "Functions can call themselves."],
+ [`def fib(n):\n    if n < 2:\n        return n\n    return fib(n - 1) + fib(n - 2)`, "Functions can call themselves."]
 ]],
 ["Lists", [
  [`nums = [3, 1, 2]\nnums2 = list("a", "b")`, "A list holds many values. [..] and list(..) both make one."],
@@ -872,14 +1633,14 @@ const REF = [
  [`append(nums, 4)`, "Adds to the end. pop(nums) removes and gives back the last item."],
  [`say(len(nums))`, "How many items. Also sum(l), max(l), min(l)."],
  [`say(sort(nums))\nsay(reverse(nums))`, "Gives a sorted or backwards copy."],
- [`say(nums + [7, 8])`, "Joins two lists."],
+ [`say(nums + [7, 8])`, "Joins two lists."]
 ]],
 ["Dictionaries", [
  [`pet = {"name": "Rex", "age": 3}`, "A dictionary stores values under names (keys). dict() makes an empty one."],
  [`say(pet["name"])\npet["age"] = 4\npet["color"] = "brown"`, "Read, change, or add a value."],
  [`say(keys(pet))\nsay(values(pet))`, "Lists of all keys or all values."],
  [`if "name" in pet:`, "Checks if a key exists. len(pet) counts them."],
- [`for k in pet:\n    say(k, pet[k])`, "Loops over the keys."],
+ [`for k in pet:\n    say(k, pet[k])`, "Loops over the keys."]
 ]],
 ["Text", [
  [`say("hi " + "there")`, "+ joins text. Numbers get turned into text automatically."],
@@ -888,66 +1649,85 @@ const REF = [
  [`say(replace("cat", "c", "b"))`, "Swaps part of the text."],
  [`say("hello"[0], len("hello"))`, "Gets a letter, counts letters."],
  [`n = num("42")\ns = str(42)\ni = int(3.9)`, "Change between text and numbers."],
- [`say(type(5))`, "Tells you what kind of value it is."],
+ [`say(type(5))`, "Tells you what kind of value it is."]
 ]],
-["AI: neural networks (learning from examples)", [
- [`brain = network(2, 8, 1)`, "Makes a neural network, a small 'brain' that learns. The numbers are its layers: 2 inputs, 8 hidden cells, 1 output. It starts out knowing nothing."],
- [`examples = [[[0, 0], 0], [[0, 1], 1], [[1, 0], 1], [[1, 1], 0]]`, "Training examples. Each one is [inputs, answer]. Here the answer is 1 when exactly one input is 1."],
- [`train(brain, examples, 5000)`, "Shows the brain the examples 5000 times so it learns. Gives back how wrong it still is (closer to 0 is better). A 4th value sets the learning speed (default 0.5)."],
- [`say(round(predict(brain, [1, 0]), 2))`, "Asks the brain about something. One output gives a number from 0 to 1. Several outputs give a list."],
- [`say(error(brain, examples))`, "How wrong the brain is on a set of examples."],
- [`say(argmax([0.1, 0.7, 0.2]))`, "The position of the biggest number in a list. Useful when the network has one output per category."],
+["AI: neural networks", [
+ [`brain = brain(2, 8, 1)`, "Makes a small neural network with 2 inputs, 8 hidden cells, and 1 output."],
+ [`examples = [[[0, 0], 0], [[0, 1], 1], [[1, 0], 1], [[1, 1], 0]]`, "Training examples. Each one is [inputs, answer]."],
+ [`learn(brain, examples, 3000)`, "Shows the network examples so it can learn. A lower error is generally better."],
+ [`say(round(guess(brain, [1, 0]), 2))`, "Asks the network to make a prediction."],
+ [`say(error(brain, examples))`, "Measures how wrong the network is on the examples."],
+ [`say(argmax([0.1, 0.7, 0.2]))`, "Returns the position of the biggest number."]
 ]],
 ["AI: saving a brain", [
- [`save("mybrain", brain)`, "Saves a trained brain in this browser so it is still there after you reload the page."],
- [`if saved("mybrain"):\n    brain = load("mybrain")\nelse:\n    brain = network(2, 8, 1)\n    train(brain, examples, 5000)\n    save("mybrain", brain)`, "Loads the brain if you saved one, otherwise trains and saves a new one."],
+ [`save("mybrain", brain)`, "Saves a trained network in this browser."],
+ [`if saved("mybrain"):\n    brain = load("mybrain")\nelse:\n    brain = network(2, 8, 1)\n    learn(brain, examples, 3000)\n    save("mybrain", brain)`, "Loads a saved network or trains and saves a new one."]
 ]],
 ["Handling errors", [
- [`try:\n    x = num("abc")\nexcept:\n    say("that went wrong:", problem)`, "Runs the try lines. If something goes wrong, it doesn't stop. The except lines run instead, and 'problem' holds the message."],
- [`stop("something is wrong")`, "Makes an error on purpose."],
+ [`try:\n    x = num("abc")\nexcept:\n    say("that went wrong:", problem)`, "Runs the except lines if an error happens. The problem variable holds the message."],
+ [`stop("something is wrong")`, "Makes an error on purpose."]
 ]],
 ["Drawing", [
- [`background("black")\ncolor("orange")\ncircle(240, 160, 50)`, "Drawing shows up in a box under the output. The box is 480 wide and 320 tall. (0, 0) is the top left."],
- [`rect(20, 20, 100, 60)\nline(0, 0, 480, 320)`, "rect(x, y, width, height) and line(x1, y1, x2, y2). color(...) changes the color."],
- [`write("hello", 20, 40)`, "Writes text on the drawing. clear() wipes it."],
+ [`background("black")\ncolor("orange")\ncircle(240, 160, 50)`, "Drawing shows up below the output. The canvas is 480 by 320."],
+ [`rect(20, 20, 100, 60)\nline(0, 0, 480, 320)`, "Draws a rectangle and a line."],
+ [`write("hello", 20, 40)`, "Writes text on the drawing. clear() wipes it."]
 ]],
 ["More list and random tools", [
- [`say(slice([1, 2, 3, 4], 1, 3))`, "A piece of a list or text, from position 1 up to (not including) 3."],
- [`say(pick(["a", "b", "c"]))\nsay(shuffle([1, 2, 3]))\nsay(chance())`, "A random item, a shuffled copy, and a random decimal from 0 to 1."],
- [`names = [\n    "sam",\n    "jo"\n]`, "A list can continue across lines until its closing bracket."],
+ [`say(slice([1, 2, 3, 4], 1, 3))`, "Gets a section of a list or text."],
+ [`say(pick(["a", "b", "c"]))\nsay(shuffle([1, 2, 3]))\nsay(chance())`, "Picks a random item, shuffles a list, and gives a random decimal."],
+ [`names = [\n    "sam",\n    "jo"\n]`, "A list can continue across lines."]
 ]],
-["AI: logic (facts, rules, questions)", [
- [`parent("alice", "bob")\nparent("bob", "carol")`, "A fact: something that is true. Any name(...) line that isn't a command is a fact."],
- [`wonder parent("alice", ?who)`, "A question. ?who is a blank the computer fills in. Prints every answer, or yes / no if there are no blanks."],
- [`teach grandparent(?a, ?c):\n    parent(?a, ?b)\n    parent(?b, ?c)`, "A rule: true when every indented line is true. You can use ?x > 3, ?a != ?b and ?m = ?n - 1 inside rules."],
- [`wonder grandparent("alice", ?who)`, "Ask about the rule. Define facts and rules before the wonder that uses them."],
-]],
+["AI: logic", [
+ [`parent("alice", "bob")\nparent("bob", "carol")`, "A fact: something that is true."],
+ [`wonder parent("alice", ?who)`, "A question. ?who is a variable that the computer fills in."],
+ [`teach grandparent(?a, ?c):\n    parent(?a, ?b)\n    parent(?b, ?c)`, "A rule is true when all its indented lines are true."],
+ [`wonder grandparent("alice", ?who)`, "Ask a question about a rule."]
+]]
 ];
 
 function buildRef() {
   const box = document.getElementById("ref");
+
   for (const [title, items] of REF) {
-    const h = document.createElement("h2"); h.textContent = title; box.appendChild(h);
+    const h = document.createElement("h2");
+    h.textContent = title;
+    box.appendChild(h);
+
     for (const [code, text] of items) {
       const pre = document.createElement("pre");
-      pre.textContent = code; pre.title = "Click to copy into the editor";
-      pre.onclick = () => { codeBox.value += (codeBox.value.endsWith("\n") ? "" : "\n") + "\n" + code + "\n"; tab("ed"); };
-      const p = document.createElement("p"); p.textContent = text;
-      box.appendChild(pre); box.appendChild(p);
+      pre.textContent = code;
+      pre.title = "Click to copy into the editor";
+
+      pre.onclick = () => {
+        codeBox.value +=
+          (codeBox.value.endsWith("\n") ? "" : "\n") +
+          "\n" + code + "\n";
+        tab("ed");
+      };
+
+      const p = document.createElement("p");
+      p.textContent = text;
+      box.appendChild(pre);
+      box.appendChild(p);
     }
   }
 }
+
 function tab(which) {
   document.getElementById("ed").hidden = which !== "ed";
   document.getElementById("ref").hidden = which !== "ref";
   document.getElementById("tabEd").classList.toggle("on", which === "ed");
   document.getElementById("tabRef").classList.toggle("on", which === "ref");
 }
+
 buildRef();
 
 let saved = null;
-try { saved = localStorage.getItem("fd_code"); } catch (e) {}
-codeBox.value = saved || EXAMPLES.family;
+try {
+  saved = localStorage.getItem("fd_code");
+} catch (e) {}
+
+codeBox.value = saved || EXAMPLES.code;
 run();
 </script>
 </body>
