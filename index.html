@@ -41,6 +41,7 @@
     <button class="run" onclick="run()">Run</button>
     <select id="examples" onchange="loadExample()" aria-label="Examples">
       <option value="">Load an example...</option>
+      <option value="ai">AI: a brain that learns</option>
       <option value="code">Normal code (loops, functions, lists)</option>
       <option value="family">Family tree</option>
       <option value="math">Variables and math</option>
@@ -59,6 +60,15 @@
 //  EXAMPLES
 // ============================================================
 const EXAMPLES = {
+ai: `# a tiny brain that learns the XOR rule
+examples = [[[0, 0], 0], [[0, 1], 1], [[1, 0], 1], [[1, 1], 0]]
+brain = network(2, 8, 1)
+say("before training:", round(predict(brain, [1, 0]), 2))
+err = train(brain, examples, 5000)
+say("how wrong it is now:", round(err, 4))
+for pair in examples:
+    say(pair[0], "->", round(predict(brain, pair[0]), 2))
+`,
 code: `# fd# can run normal code too
 def greet(name):
     return "hello " + name
@@ -480,12 +490,80 @@ const truthy = v => v instanceof Map ? v.size > 0 : Array.isArray(v) ? v.length 
 const J = v => JSON.stringify(v, (k, x) => x instanceof Map ? [...x] : x);
 const tick = () => { if (++STEPS > 2000000) throw new Error("the program ran too long. Is there a loop that never ends?"); };
 
+// ---------- a small neural network ----------
+const sig = x => 1 / (1 + Math.exp(-x));
+function makeNet(sizes) {
+  if (sizes.length < 2 || sizes.some(n => !Number.isInteger(n) || n < 1)) throw new Error("network needs whole numbers, like network(2, 8, 1)");
+  const W = [], B = [];
+  for (let l = 1; l < sizes.length; l++) {
+    W.push(Array.from({ length: sizes[l] }, () => Array.from({ length: sizes[l - 1] }, () => (Math.random() - 0.5) * 2)));
+    B.push(Array.from({ length: sizes[l] }, () => 0));
+  }
+  return { f: "network", args: sizes, W, B };
+}
+function forward(net, input) {                       // run numbers through the layers
+  const acts = [input];
+  for (let l = 0; l < net.W.length; l++) {
+    const last = l === net.W.length - 1;
+    acts.push(net.W[l].map((row, j) => {
+      let s = net.B[l][j];
+      for (let i = 0; i < row.length; i++) s += row[i] * acts[l][i];
+      return last ? sig(s) : Math.tanh(s);
+    }));
+  }
+  return acts;
+}
+function prepExamples(net, ex) {
+  if (!net || net.f !== "network") throw new Error("the first value must be a network made with network(...)");
+  if (!Array.isArray(ex) || ex.length === 0) throw new Error("examples must be a list like [[[0, 0], 0], [[1, 1], 1]]");
+  const nIn = net.args[0], nOut = net.args[net.args.length - 1];
+  return ex.map(p => {
+    if (!Array.isArray(p) || p.length !== 2 || !Array.isArray(p[0])) throw new Error("each example needs the form [inputs, answer], like [[0, 1], 1]");
+    const want = Array.isArray(p[1]) ? p[1] : [p[1]];
+    if (p[0].length !== nIn || want.length !== nOut) throw new Error("this network has " + nIn + " input(s) and " + nOut + " output(s), but an example doesn't match");
+    return [p[0], want];
+  });
+}
+function avgError(net, ex) {
+  let total = 0;
+  for (const [inp, want] of ex) { const o = forward(net, inp).pop(); total += o.reduce((s, v, j) => s + (v - want[j]) ** 2, 0) / o.length; }
+  return total / ex.length;
+}
+function trainNet(net, ex, rounds, rate) {          // learn by nudging the numbers (backpropagation)
+  const L = net.W.length;
+  for (let r = 0; r < rounds; r++) for (const [inp, want] of ex) {
+    const acts = forward(net, inp);
+    let delta = acts[L].map((o, j) => o - want[j]);
+    for (let l = L - 1; l >= 0; l--) {
+      const prev = acts[l];
+      const nextDelta = l > 0 ? prev.map((a, i) => (1 - a * a) * net.W[l].reduce((s, row, j) => s + row[i] * delta[j], 0)) : null;
+      net.W[l].forEach((row, j) => { for (let i = 0; i < row.length; i++) row[i] -= rate * delta[j] * prev[i]; net.B[l][j] -= rate * delta[j]; });
+      delta = nextDelta;
+    }
+  }
+}
+
 const BUILTINS = {
   print: (...a) => { OUT.push(a.map(disp).join(" ")); return null; },
   len: x => x instanceof Map ? x.size : x.length,
   say: (...a) => BUILTINS.print(...a),
   list: (...a) => a,
   dict: () => new Map(),
+  network: (...sizes) => makeNet(sizes),
+  train: (m, ex, rounds = 1000, rate = 0.5) => {
+    const e = prepExamples(m, ex);
+    if (rounds * e.length > 3000000) throw new Error("that is too many rounds for one train(...). Try fewer.");
+    trainNet(m, e, rounds, rate);
+    return avgError(m, e);
+  },
+  predict: (m, inp) => {
+    if (!m || m.f !== "network") throw new Error("the first value must be a network made with network(...)");
+    if (!Array.isArray(inp) || inp.length !== m.args[0]) throw new Error("this network takes " + m.args[0] + " input number(s), like predict(brain, [1, 0])");
+    const o = forward(m, inp).pop();
+    return o.length === 1 ? o[0] : o;
+  },
+  error: (m, ex) => avgError(m, prepExamples(m, ex)),
+  argmax: l => l.indexOf(Math.max(...l)),
   keys: d => [...d.keys()],
   values: d => [...d.values()],
   join: (l, sep = "") => l.map(disp).join(sep),
@@ -498,7 +576,7 @@ const BUILTINS = {
   floor: x => Math.floor(x), ceil: x => Math.ceil(x), sqrt: x => Math.sqrt(x),
   power: (a, b) => a ** b,
   random: n => Math.floor(Math.random() * n),
-  type: x => x instanceof Map ? "dictionary" : Array.isArray(x) ? "list" : typeof x === "number" ? "number" : typeof x === "string" ? "text" : typeof x === "boolean" ? "yes/no" : "nothing",
+  type: x => x && x.f === "network" ? "network" : x instanceof Map ? "dictionary" : Array.isArray(x) ? "list" : typeof x === "number" ? "number" : typeof x === "string" ? "text" : typeof x === "boolean" ? "yes/no" : "nothing",
   str: x => disp(x),
   num: x => { const n = Number(x); if (isNaN(n)) throw new Error('"' + x + '" is not a number'); return n; },
   int: x => Math.trunc(Number(x)),
@@ -751,7 +829,15 @@ const REF = [
  [`n = num("42")\ns = str(42)\ni = int(3.9)`, "Change between text and numbers."],
  [`say(type(5))`, "Tells you what kind of value it is."],
 ]],
-["Logic (facts, rules, questions)", [
+["AI: neural networks (learning from examples)", [
+ [`brain = network(2, 8, 1)`, "Makes a neural network, a small 'brain' that learns. The numbers are its layers: 2 inputs, 8 hidden cells, 1 output. It starts out knowing nothing."],
+ [`examples = [[[0, 0], 0], [[0, 1], 1], [[1, 0], 1], [[1, 1], 0]]`, "Training examples. Each one is [inputs, answer]. Here the answer is 1 when exactly one input is 1."],
+ [`train(brain, examples, 5000)`, "Shows the brain the examples 5000 times so it learns. Gives back how wrong it still is (closer to 0 is better). A 4th value sets the learning speed (default 0.5)."],
+ [`say(round(predict(brain, [1, 0]), 2))`, "Asks the brain about something. One output gives a number from 0 to 1. Several outputs give a list."],
+ [`say(error(brain, examples))`, "How wrong the brain is on a set of examples."],
+ [`say(argmax([0.1, 0.7, 0.2]))`, "The position of the biggest number in a list. Useful when the network has one output per category."],
+]],
+["AI: logic (facts, rules, questions)", [
  [`parent("alice", "bob")\nparent("bob", "carol")`, "A fact: something that is true. Any name(...) line that isn't a command is a fact."],
  [`wonder parent("alice", ?who)`, "A question. ?who is a blank the computer fills in. Prints every answer, or yes / no if there are no blanks."],
  [`teach grandparent(?a, ?c):\n    parent(?a, ?b)\n    parent(?b, ?c)`, "A rule: true when every indented line is true. You can use ?x > 3, ?a != ?b and ?m = ?n - 1 inside rules."],
