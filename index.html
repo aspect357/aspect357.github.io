@@ -1,1855 +1,467 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>tasks</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --red: #e8000d;
-      --red-glow: rgba(232,0,13,0.15);
-      --bg: #0e0e0e;
-      --surface: #161616;
-      --surface2: #1e1e1e;
-      --border: #222;
-      --border2: #2e2e2e;
-      --text: #e8e8e8;
-      --muted: #484848;
-      --muted2: #2a2a2a;
-    }
-
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
-
-    /* ── MAIN VIEW ── */
-    #app { max-width: 480px; margin: 0 auto; padding: 32px 16px 100px; min-height: 100vh; display: flex; flex-direction: column; }
-
-    .input-row { display: flex; gap: 8px; margin-bottom: 16px; }
-
-    .task-input {
-      flex: 1; background: var(--surface); border: 1.5px solid var(--border);
-      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px;
-      padding: 10px 14px; border-radius: 6px; outline: none; transition: border-color 0.15s;
-    }
-    .task-input:focus { border-color: var(--border2); }
-    .task-input::placeholder { color: var(--muted); }
-
-    .add-btn {
-      width: 40px; height: 40px; background: var(--text); color: var(--bg);
-      border: none; border-radius: 6px; font-size: 20px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s; flex-shrink: 0;
-    }
-    .add-btn:hover { background: #bbb; }
-
-    .urgent-row { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
-
-    .toggle-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-
-    .toggle {
-      width: 36px; height: 20px; background: var(--border2); border-radius: 10px;
-      position: relative; cursor: pointer; transition: background 0.2s; border: none; flex-shrink: 0;
-    }
-    .toggle::after {
-      content: ''; width: 14px; height: 14px; background: #fff; border-radius: 50%;
-      position: absolute; top: 3px; left: 3px; transition: left 0.2s;
-    }
-    .toggle.on { background: var(--red); }
-    .toggle.on::after { left: 19px; }
-
-    .filters { display: flex; gap: 6px; margin-bottom: 20px; }
-
-    .pill {
-      font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.8px;
-      text-transform: uppercase; color: var(--muted); background: transparent;
-      border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .pill:hover { color: var(--text); border-color: var(--border2); }
-    .pill.active { color: var(--text); border-color: var(--muted); background: var(--surface); }
-
-    .task-list { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-
-    .task-item {
-      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
-      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
-      cursor: pointer; transition: border-color 0.15s, background 0.15s;
-      animation: slideIn 0.18s ease; position: relative;
-    }
-    @keyframes slideIn { from { opacity:0; transform: translateY(-4px); } to { opacity:1; transform: none; } }
-    .task-item:hover { border-color: var(--border2); }
-    .task-item.urgent { border-color: var(--red); background: rgba(232,0,13,0.03); }
-    .task-item.urgent::before {
-      content:''; position: absolute; left:0; top:0; bottom:0;
-      width: 3px; background: var(--red); border-radius: 6px 0 0 6px;
-    }
-    .task-item.done { opacity: 0.35; }
-    .task-item.done .task-label { text-decoration: line-through; }
-
-    .check {
-      width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border2);
-      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s; background: transparent; cursor: pointer;
-    }
-    .task-item.urgent:not(.done) .check { border-color: var(--red); animation: pulse 2s ease-in-out infinite; }
-    @keyframes pulse {
-      0%,100% { box-shadow: 0 0 0 0 rgba(232,0,13,0.5); }
-      50%      { box-shadow: 0 0 0 4px rgba(232,0,13,0); }
-    }
-    .task-item.done .check { background: var(--muted); border-color: var(--muted); }
-    .check-tick { display:none; color:#fff; font-size:10px; }
-    .task-item.done .check-tick { display:block; }
-
-    .task-label { flex: 1; font-size: 14px; line-height: 1.4; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .task-item.urgent:not(.done) .task-label { font-weight: 500; }
-
-    .task-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
-
-    .due-tag { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
-    .due-tag.overdue { color: var(--red); }
-    .due-tag.soon { color: #f5a623; }
-
-    .notes-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
-    .task-item.urgent .notes-dot { background: var(--red); }
-
-    .del-btn {
-      opacity: 0; background: transparent; border: none; color: var(--muted);
-      cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 3px;
-      transition: opacity 0.15s, color 0.15s; flex-shrink: 0;
-    }
-    .task-item:hover .del-btn { opacity: 1; }
-    .del-btn:hover { color: var(--red); }
-
-    .empty { text-align: center; color: var(--muted); font-size: 13px; padding: 60px 0; }
-
-    /* footer */
-    .footer {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      padding: 18px; display: flex; justify-content: center;
-    }
-    .secret-link {
-      font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted2);
-      letter-spacing: 1px; text-transform: uppercase; background: transparent;
-      border: none; cursor: pointer; transition: color 0.2s;
-    }
-    .secret-link:hover { color: var(--muted); }
-
-    /* ── MODAL ── */
-    .modal-overlay {
-      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-      z-index: 100; align-items: center; justify-content: center; padding: 16px;
-      backdrop-filter: blur(4px);
-    }
-    .modal-overlay.open { display: flex; }
-
-    .modal {
-      background: var(--surface); border: 1px solid var(--border2); border-radius: 10px;
-      width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto;
-      padding: 24px; animation: mIn 0.18s ease;
-    }
-    @keyframes mIn { from { opacity:0; transform: scale(0.96); } to { opacity:1; transform: none; } }
-
-    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-    .modal-title { font-size: 15px; font-weight: 500; line-height: 1.3; flex: 1; margin-right: 12px; }
-    .modal-close {
-      background: transparent; border: none; color: var(--muted);
-      font-size: 18px; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: color 0.15s;
-    }
-    .modal-close:hover { color: var(--text); }
-
-    .modal-field { margin-bottom: 16px; }
-    .field-label { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; display: block; }
-
-    .field-input, .field-textarea {
-      width: 100%; background: var(--surface2); border: 1px solid var(--border);
-      color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px;
-      padding: 10px 12px; border-radius: 6px; outline: none; transition: border-color 0.15s;
-    }
-    .field-input:focus, .field-textarea:focus { border-color: var(--border2); }
-    .field-textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
-    .field-input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.4); cursor: pointer; }
-
-    .urgent-check-row { display: flex; align-items: center; gap: 10px; }
-
-    .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
-    .btn-save {
-      flex: 1; background: var(--text); color: var(--bg); border: none;
-      border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 14px;
-      font-weight: 500; padding: 10px; cursor: pointer; transition: background 0.15s;
-    }
-    .btn-save:hover { background: #bbb; }
-    .btn-secondary {
-      background: transparent; color: var(--muted); border: 1px solid var(--border);
-      border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 14px;
-      padding: 10px 16px; cursor: pointer; transition: all 0.15s;
-    }
-    .btn-secondary:hover { border-color: var(--border2); color: var(--text); }
-
-    /* ── CALENDAR ── */
-    #calView { display: none; max-width: 480px; margin: 0 auto; padding: 32px 16px 80px; min-height: 100vh; }
-    #calView.open { display: block; }
-
-    .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-    .cal-nav { display: flex; align-items: center; gap: 14px; }
-    .cal-month { font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--text); min-width: 140px; text-align: center; }
-    .nav-btn {
-      background: transparent; border: 1px solid var(--border); color: var(--muted);
-      border-radius: 4px; width: 28px; height: 28px; cursor: pointer; font-size: 14px;
-      transition: all 0.15s; display: flex; align-items: center; justify-content: center;
-    }
-    .nav-btn:hover { border-color: var(--border2); color: var(--text); }
-    .back-link {
-      font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 1px;
-      text-transform: uppercase; color: var(--muted2); background: transparent;
-      border: none; cursor: pointer; transition: color 0.15s;
-    }
-    .back-link:hover { color: var(--muted); }
-
-    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
-
-    .cal-day-name { font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); text-align: center; padding: 6px 0; }
-
-    .cal-day {
-      aspect-ratio: 1; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; border-radius: 6px; cursor: pointer;
-      border: 1px solid transparent; transition: all 0.12s;
-      padding: 4px; gap: 3px; background: transparent;
-    }
-    .cal-day:hover { background: var(--surface); border-color: var(--border); }
-    .cal-day.empty { cursor: default; pointer-events: none; }
-    .cal-day.today { border-color: var(--red); }
-    .cal-day.today .day-num { color: var(--red); font-weight: 600; }
-    .cal-day.has-tasks { background: var(--surface); }
-    .cal-day.selected { border-color: var(--border2) !important; background: var(--surface2) !important; }
-
-    .day-num { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); line-height: 1; }
-    .cal-day.faded .day-num { color: var(--muted2); }
-
-    .day-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; min-height: 5px; }
-    .day-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
-    .day-dot.urgent { background: var(--red); }
-
-    .cal-day-detail { margin-top: 18px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-    .cal-day-detail-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
-
-    .cal-task-row {
-      display: flex; align-items: center; gap: 8px; padding: 8px 0;
-      border-bottom: 1px solid var(--border); cursor: pointer; transition: opacity 0.15s;
-    }
-    .cal-task-row:last-of-type { border-bottom: none; }
-    .cal-task-row:hover { opacity: 0.7; }
-
-    .cal-task-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-    .cal-task-dot.urgent { background: var(--red); }
-    .cal-task-name { flex: 1; font-size: 13px; }
-
-    .cal-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 10px 0; }
-
-    .cal-add-btn {
-      width: 100%; margin-top: 10px; background: transparent; border: 1px dashed var(--border);
-      color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 13px;
-      padding: 8px; border-radius: 6px; cursor: pointer; transition: all 0.15s;
-    }
-    .cal-add-btn:hover { border-color: var(--border2); color: var(--text); }
-
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fd#</title>
+<style>
+  :root { --bg:#14161a; --panel:#1c1f26; --text:#e6e6e6; --muted:#8b93a1; --accent:#f2b84b; --line:#2c303a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: system-ui, sans-serif; }
+  main { max-width: 820px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  h1 { margin: 0 0 .25rem; font-size: 1.6rem; }
+  p.sub { margin: 0 0 1rem; color: var(--muted); }
+  .bar { display:flex; gap:.5rem; align-items:center; margin: .75rem 0; flex-wrap: wrap; }
+  button, select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: .5rem .9rem; font-size: 1rem; cursor: pointer; }
+  button.run { background: var(--accent); color:#1a1a1a; border-color: var(--accent); font-weight: 600; }
+  button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  textarea, pre { width:100%; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: .75rem; font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace; margin: 0; tab-size: 4; }
+  textarea { height: 300px; resize: vertical; }
+  pre { min-height: 110px; white-space: pre-wrap; }
+  pre.err { color: #ff8a80; }
+  small { color: var(--muted); }
+</style>
 </head>
 <body>
+<main>
+  <h1>fd#</h1>
 
-<!-- MAIN -->
-<div id="app">
-  <div class="input-row">
-    <input class="task-input" id="taskInput" type="text" placeholder="add a task..." maxlength="200" autocomplete="off" />
-    <button class="add-btn" id="addBtn">+</button>
+  <div class="bar">
+    <button class="run" onclick="run()">Run</button>
+    <select id="examples" onchange="loadExample()" aria-label="Examples">
+      <option value="">Load an example...</option>
+      <option value="family">Family tree</option>
+      <option value="math">Variables and math</option>
+      <option value="multi">More than one answer</option>
+    </select>
+    <small>Ctrl+Enter runs. Tab indents.</small>
   </div>
 
-  <div class="urgent-row">
-    <button class="toggle" id="urgentToggle"></button>
-    <span class="toggle-label" id="urgentLabel">urgent</span>
-  </div>
-
-  <div class="filters">
-    <button class="pill active" data-f="all">all</button>
-    <button class="pill" data-f="urgent">urgent</button>
-    <button class="pill" data-f="done">done</button>
-  </div>
-
-  <div class="task-list" id="taskList"></div>
-</div>
-
-<!-- CALENDAR -->
-<div id="calView">
-  <div class="cal-header">
-    <button class="back-link" id="backBtn">← back</button>
-    <div class="cal-nav">
-      <button class="nav-btn" id="prevMonth">‹</button>
-      <div class="cal-month" id="calMonth"></div>
-      <button class="nav-btn" id="nextMonth">›</button>
-    </div>
-  </div>
-  <div class="cal-grid" id="calGrid"></div>
-  <div id="calDayDetail"></div>
-</div>
-
-<!-- FOOTER -->
-<div class="footer" id="mainFooter">
-  <button class="secret-link" id="calBtn">calendar</button>
-  <span style="color:#1a1a1a;margin:0 10px;font-size:9px;">·</span>
-  <button class="secret-link" id="wellBtn">well</button>
-</div>
-
-<!-- TASK MODAL -->
-<div class="modal-overlay" id="taskModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="modalTitle"></div>
-      <button class="modal-close" id="modalClose">×</button>
-    </div>
-    <div class="modal-field">
-      <label class="field-label" for="editText">task</label>
-      <input class="field-input" id="editText" type="text" maxlength="200" />
-    </div>
-    <div class="modal-field">
-      <label class="field-label" for="editNotes">notes</label>
-      <textarea class="field-textarea" id="editNotes" placeholder="anything you want to remember..."></textarea>
-    </div>
-    <div class="modal-field">
-      <label class="field-label" for="editDue">due date</label>
-      <input class="field-input" id="editDue" type="date" />
-    </div>
-    <div class="modal-field">
-      <div class="urgent-check-row">
-        <button class="toggle" id="editUrgent"></button>
-        <span class="field-label" style="margin-bottom:0">urgent</span>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="modalDelete">delete</button>
-      <button class="btn-save" id="modalSave">save</button>
-    </div>
-  </div>
-</div>
+  <textarea id="code" spellcheck="false"></textarea>
+  <pre id="output">Output shows up here.</pre>
+</main>
 
 <script>
-  let tasks = [];
-  let filter = 'all';
-  let urgentNew = false;
-  let editingId = null;
-  let editUrgentVal = false;
-  let calDate = new Date();
-  let selectedCalDay = null;
+// ============================================================
+//  EXAMPLES
+// ============================================================
+const EXAMPLES = {
+family: `# facts
+parent("alice", "bob")
+parent("alice", "dana")
+parent("bob", "carol")
+parent("dana", "eve")
 
-  const load = () => { try { tasks = JSON.parse(localStorage.getItem('doit_v2') || '[]'); } catch { tasks = []; } };
-  const save = () => localStorage.setItem('doit_v2', JSON.stringify(tasks));
-  const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
-  const today = () => new Date().toISOString().slice(0,10);
+# rule: ?a is a grandparent of ?c if both lines are true
+teach grandparent(?a, ?c):
+    parent(?a, ?b)
+    parent(?b, ?c)
 
-  function dueMeta(due) {
-    if (!due) return null;
-    const d = new Date(due + 'T00:00:00');
-    const t = new Date(); t.setHours(0,0,0,0);
-    const diff = Math.round((d - t) / 86400000);
-    if (diff < 0)  return { label: `${Math.abs(diff)}d ago`, cls: 'overdue' };
-    if (diff === 0) return { label: 'today', cls: 'soon' };
-    if (diff === 1) return { label: 'tmrw', cls: 'soon' };
-    return { label: due.slice(5).replace('-','/'), cls: '' };
-  }
+wonder grandparent("alice", ?who)
+`,
+math: `# variables work like Python
+x = 5
+name = "alice"
+total = x + 10
+say total
+say name
 
-  // ── Render tasks ──
-  function renderTasks() {
-    const list = document.getElementById('taskList');
-    list.innerHTML = '';
+# recursion with math
+fact_of(0, 1)
 
-    let shown = tasks.filter(t => {
-      if (filter === 'urgent') return t.urgent && !t.done;
-      if (filter === 'done')   return t.done;
-      return true;
-    });
+teach fact_of(?n, ?r):
+    ?n > 0
+    ?m = ?n - 1
+    fact_of(?m, ?s)
+    ?r = ?n * ?s
 
-    shown.sort((a,b) => {
-      if (a.done !== b.done) return a.done ? 1 : -1;
-      if (a.urgent !== b.urgent) return a.urgent ? -1 : 1;
-      if (a.due && b.due) return a.due.localeCompare(b.due);
-      if (a.due) return -1; if (b.due) return 1;
-      return b.created - a.created;
-    });
+wonder fact_of(5, ?answer)
+`,
+multi: `parent("alice", "bob")
+parent("alice", "dana")
+parent("carl", "fay")
 
-    if (!shown.length) {
-      list.innerHTML = '<div class="empty">nothing here</div>';
-      return;
-    }
+# who are alice's children?
+wonder parent("alice", ?child)
 
-    shown.forEach(t => {
-      const div = document.createElement('div');
-      div.className = `task-item${t.urgent ? ' urgent' : ''}${t.done ? ' done' : ''}`;
+# who are siblings?
+teach sibling(?a, ?b):
+    parent(?p, ?a)
+    parent(?p, ?b)
+    ?a != ?b
 
-      const chk = document.createElement('button');
-      chk.className = 'check';
-      chk.innerHTML = '<span class="check-tick">✓</span>';
-      chk.addEventListener('click', e => { e.stopPropagation(); toggleDone(t.id); });
+wonder sibling("bob", ?who)
+`
+};
 
-      const lbl = document.createElement('span');
-      lbl.className = 'task-label';
-      lbl.textContent = t.text;
+// ============================================================
+//  1. LEXER: text -> tokens (with INDENT / DEDENT like Python)
+// ============================================================
+function lex(src) {
+  const toks = [];
+  const stack = [0];
+  const lines = src.split("\n");
+  const fail = (msg, ln) => { throw new Error("line " + ln + ": " + msg); };
 
-      const meta = document.createElement('div');
-      meta.className = 'task-meta';
+  for (let n = 0; n < lines.length; n++) {
+    const ln = n + 1;
+    const line = lines[n].replace(/\t/g, "    ").replace(/\r$/, "");
+    let i = 0, indent = 0;
+    while (line[i] === " ") { indent++; i++; }
+    if (i >= line.length || line[i] === "#") continue;      // blank or comment-only
 
-      const dm = dueMeta(t.due);
-      if (dm) {
-        const tag = document.createElement('span');
-        tag.className = `due-tag ${dm.cls}`;
-        tag.textContent = dm.label;
-        meta.appendChild(tag);
-      }
-
-      if (t.notes && t.notes.trim()) {
-        const dot = document.createElement('div');
-        dot.className = 'notes-dot';
-        meta.appendChild(dot);
-      }
-
-      const del = document.createElement('button');
-      del.className = 'del-btn';
-      del.textContent = '×';
-      del.addEventListener('click', e => { e.stopPropagation(); deleteTask(t.id); });
-
-      div.appendChild(chk);
-      div.appendChild(lbl);
-      div.appendChild(meta);
-      div.appendChild(del);
-      div.addEventListener('click', () => openModal(t.id));
-      list.appendChild(div);
-    });
-  }
-
-  function addTask() {
-    const input = document.getElementById('taskInput');
-    const text = input.value.trim();
-    if (!text) return;
-    tasks.unshift({ id: uid(), text, notes: '', due: '', urgent: urgentNew, done: false, created: Date.now() });
-    input.value = '';
-    save(); renderTasks();
-  }
-
-  function toggleDone(id) {
-    const t = tasks.find(x => x.id === id);
-    if (t) { t.done = !t.done; save(); renderTasks(); }
-  }
-
-  function deleteTask(id) {
-    tasks = tasks.filter(x => x.id !== id);
-    save(); renderTasks();
-    if (document.getElementById('calView').classList.contains('open')) renderCal();
-  }
-
-  // urgent toggle (new task)
-  function syncToggle() {
-    const tog = document.getElementById('urgentToggle');
-    const lbl = document.getElementById('urgentLabel');
-    tog.classList.toggle('on', urgentNew);
-    lbl.style.color = urgentNew ? 'var(--red)' : '';
-  }
-  document.getElementById('urgentToggle').addEventListener('click', () => { urgentNew = !urgentNew; syncToggle(); });
-
-  // filters
-  document.querySelectorAll('.pill').forEach(p => {
-    p.addEventListener('click', () => {
-      filter = p.dataset.f;
-      document.querySelectorAll('.pill').forEach(x => x.classList.remove('active'));
-      p.classList.add('active');
-      renderTasks();
-    });
-  });
-
-  document.getElementById('addBtn').addEventListener('click', addTask);
-  document.getElementById('taskInput').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
-
-  // ── MODAL ──
-  function openModal(id) {
-    const t = tasks.find(x => x.id === id);
-    if (!t) return;
-    editingId = id;
-    editUrgentVal = t.urgent;
-    document.getElementById('modalTitle').textContent = t.text;
-    document.getElementById('editText').value = t.text;
-    document.getElementById('editNotes').value = t.notes || '';
-    document.getElementById('editDue').value = t.due || '';
-    document.getElementById('editUrgent').classList.toggle('on', t.urgent);
-    document.getElementById('taskModal').classList.add('open');
-  }
-
-  function openModalForDate(dateStr) {
-    editingId = null;
-    editUrgentVal = false;
-    document.getElementById('modalTitle').textContent = 'new task';
-    document.getElementById('editText').value = '';
-    document.getElementById('editNotes').value = '';
-    document.getElementById('editDue').value = dateStr;
-    document.getElementById('editUrgent').classList.remove('on');
-    document.getElementById('taskModal').classList.add('open');
-  }
-
-  function closeModal() {
-    document.getElementById('taskModal').classList.remove('open');
-    editingId = null;
-  }
-
-  document.getElementById('modalClose').addEventListener('click', closeModal);
-  document.getElementById('taskModal').addEventListener('click', e => {
-    if (e.target === document.getElementById('taskModal')) closeModal();
-  });
-
-  document.getElementById('editUrgent').addEventListener('click', () => {
-    editUrgentVal = !editUrgentVal;
-    document.getElementById('editUrgent').classList.toggle('on', editUrgentVal);
-  });
-
-  document.getElementById('modalSave').addEventListener('click', () => {
-    const text = document.getElementById('editText').value.trim();
-    if (!text) return;
-    const notes = document.getElementById('editNotes').value.trim();
-    const due   = document.getElementById('editDue').value;
-
-    if (editingId) {
-      const t = tasks.find(x => x.id === editingId);
-      if (t) { t.text = text; t.notes = notes; t.due = due; t.urgent = editUrgentVal; }
+    if (indent > stack[stack.length - 1]) {
+      stack.push(indent);
+      toks.push({ t: "INDENT", line: ln });
     } else {
-      tasks.unshift({ id: uid(), text, notes, due, urgent: editUrgentVal, done: false, created: Date.now() });
+      while (indent < stack[stack.length - 1]) {
+        stack.pop();
+        toks.push({ t: "DEDENT", line: ln });
+      }
+      if (indent !== stack[stack.length - 1]) fail("indentation does not match an earlier line", ln);
     }
 
-    save(); closeModal(); renderTasks();
-    if (document.getElementById('calView').classList.contains('open')) renderCal();
-  });
-
-  document.getElementById('modalDelete').addEventListener('click', () => {
-    if (editingId) deleteTask(editingId);
-    closeModal();
-  });
-
-  // ── CALENDAR ──
-  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const DAYS   = ['S','M','T','W','T','F','S'];
-
-  function showCal() {
-    document.getElementById('app').style.display = 'none';
-    document.getElementById('mainFooter').style.display = 'none';
-    document.getElementById('calView').classList.add('open');
-    renderCal();
-  }
-
-  function hideCal() {
-    document.getElementById('app').style.display = '';
-    document.getElementById('mainFooter').style.display = '';
-    document.getElementById('calView').classList.remove('open');
-    renderTasks();
-  }
-
-  function renderCal() {
-    const y = calDate.getFullYear(), m = calDate.getMonth();
-    document.getElementById('calMonth').textContent = `${MONTHS[m]} ${y}`;
-
-    const grid = document.getElementById('calGrid');
-    grid.innerHTML = '';
-
-    DAYS.forEach(d => {
-      const el = document.createElement('div');
-      el.className = 'cal-day-name';
-      el.textContent = d;
-      grid.appendChild(el);
-    });
-
-    const firstDay = new Date(y, m, 1).getDay();
-    const daysInMonth = new Date(y, m+1, 0).getDate();
-    const todayStr = today();
-
-    for (let i = 0; i < firstDay; i++) {
-      const el = document.createElement('div');
-      el.className = 'cal-day empty';
-      grid.appendChild(el);
-    }
-
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const dayTasks = tasks.filter(t => t.due === dateStr && !t.done);
-
-      const el = document.createElement('div');
-      el.className = `cal-day${dateStr === todayStr ? ' today' : ''}${dayTasks.length ? ' has-tasks' : ''}${selectedCalDay === dateStr ? ' selected' : ''}`;
-
-      const num = document.createElement('div');
-      num.className = 'day-num';
-      num.textContent = d;
-
-      const dots = document.createElement('div');
-      dots.className = 'day-dots';
-      dayTasks.slice(0, 4).forEach(t => {
-        const dot = document.createElement('div');
-        dot.className = `day-dot${t.urgent ? ' urgent' : ''}`;
-        dots.appendChild(dot);
-      });
-
-      el.appendChild(num);
-      el.appendChild(dots);
-      el.addEventListener('click', () => { selectedCalDay = dateStr; renderCal(); renderDayDetail(dateStr); });
-      grid.appendChild(el);
-    }
-
-    if (selectedCalDay) renderDayDetail(selectedCalDay);
-    else document.getElementById('calDayDetail').innerHTML = '';
-  }
-
-  function renderDayDetail(dateStr) {
-    const detail = document.getElementById('calDayDetail');
-    const dayTasks = tasks.filter(t => t.due === dateStr);
-    const d = new Date(dateStr + 'T00:00:00');
-    const label = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
-
-    detail.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'cal-day-detail';
-
-    const title = document.createElement('div');
-    title.className = 'cal-day-detail-title';
-    title.textContent = label;
-    wrap.appendChild(title);
-
-    if (!dayTasks.length) {
-      const emp = document.createElement('div');
-      emp.className = 'cal-empty';
-      emp.textContent = 'nothing scheduled';
-      wrap.appendChild(emp);
-    } else {
-      dayTasks.forEach(t => {
-        const row = document.createElement('div');
-        row.className = 'cal-task-row';
-
-        const dot = document.createElement('div');
-        dot.className = `cal-task-dot${t.urgent ? ' urgent' : ''}`;
-
-        const name = document.createElement('div');
-        name.className = 'cal-task-name';
-        name.textContent = t.text;
-        if (t.done) { name.style.textDecoration = 'line-through'; name.style.opacity = '0.4'; }
-
-        row.appendChild(dot);
-        row.appendChild(name);
-        row.addEventListener('click', () => openModal(t.id));
-        wrap.appendChild(row);
-      });
-    }
-
-    const addBtn = document.createElement('button');
-    addBtn.className = 'cal-add-btn';
-    addBtn.textContent = '+ add task for this day';
-    addBtn.addEventListener('click', () => openModalForDate(dateStr));
-    wrap.appendChild(addBtn);
-
-    detail.appendChild(wrap);
-  }
-
-  document.getElementById('calBtn').addEventListener('click', showCal);
-  document.getElementById('backBtn').addEventListener('click', hideCal);
-  document.getElementById('prevMonth').addEventListener('click', () => { calDate.setMonth(calDate.getMonth()-1); selectedCalDay = null; renderCal(); });
-  document.getElementById('nextMonth').addEventListener('click', () => { calDate.setMonth(calDate.getMonth()+1); selectedCalDay = null; renderCal(); });
-
-  // ── Init ──
-  load();
-  renderTasks();
-</script>
-<!-- WELL / GAMES VIEW -->
-<div id="wellView">
-  <div class="well-header">
-    <button class="back-link" id="wellBackBtn">← back</button>
-    <div class="well-title">well</div>
-  </div>
-
-  <!-- Game selector -->
-  <div id="gameMenu">
-    <button class="game-card" data-game="snake">
-      <div class="game-card-icon">◈</div>
-      <div class="game-card-name">snake</div>
-      <div class="game-card-desc">eat. grow. don't die.</div>
-    </button>
-    <button class="game-card" data-game="zombie">
-      <div class="game-card-icon">💀</div>
-      <div class="game-card-name">dead zone</div>
-      <div class="game-card-desc">first-person. shoot zombies. survive.</div>
-    </button>
-    <button class="game-card" data-game="reaction">
-      <div class="game-card-icon">⚡</div>
-      <div class="game-card-name">react</div>
-      <div class="game-card-desc">tap when it turns green.</div>
-    </button>
-  </div>
-
-  <!-- ── SNAKE ── -->
-  <div id="snakeGame" class="game-area" style="display:none">
-    <div class="game-top-bar">
-      <button class="game-back-btn" data-back="snake">← games</button>
-      <div class="game-score-display">score <span id="snakeScore">0</span></div>
-      <div class="game-score-display">best <span id="snakeBest">0</span></div>
-    </div>
-    <canvas id="snakeCanvas"></canvas>
-    <div id="snakeOverlay" class="game-overlay">
-      <div class="overlay-text" id="snakeOverlayText">snake</div>
-      <button class="overlay-btn" id="snakeStartBtn">start</button>
-    </div>
-    <div class="snake-controls">
-      <div></div><button class="dpad" id="dUp">▲</button><div></div>
-      <button class="dpad" id="dLeft">◀</button>
-      <button class="dpad" id="dDown">▼</button>
-      <button class="dpad" id="dRight">▶</button>
-    </div>
-  </div>
-
-  <!-- ── ZOMBIE SHOOTER ── -->
-  <div id="zombieGame" class="game-area" style="display:none">
-    <div class="game-top-bar">
-      <button class="game-back-btn" data-back="zombie">← games</button>
-      <div class="game-score-display">kills <span id="zKills">0</span></div>
-      <div class="game-score-display">wave <span id="zWave">1</span></div>
-      <div class="game-score-display">best <span id="zBest">0</span></div>
-    </div>
-    <div id="zombieWrap" style="position:relative;width:100%">
-      <canvas id="zombieCanvas" style="display:block;width:100%;border-radius:8px;border:1px solid var(--border);cursor:crosshair"></canvas>
-      <div id="zombieHUD">
-        <div id="zHealthBar"><div id="zHealthFill"></div></div>
-        <div id="zAmmoDisplay"></div>
-      </div>
-      <div id="zombieOverlay" class="game-overlay">
-        <div class="overlay-text" id="zOverlayTitle">dead zone</div>
-        <div id="zOverlaySub" style="font-family:'DM Mono',monospace;font-size:11px;color:#666;letter-spacing:1px;text-transform:uppercase;text-align:center;padding:0 20px"></div>
-        <button class="overlay-btn" id="zStartBtn">start</button>
-      </div>
-    </div>
-    <div class="zombie-controls">
-      <div class="zctrl-row">
-        <button class="zctrl" id="zForward">▲</button>
-      </div>
-      <div class="zctrl-row">
-        <button class="zctrl" id="zLeft">◀</button>
-        <button class="zctrl zctrl-fire" id="zFire">🔫</button>
-        <button class="zctrl" id="zRight">▶</button>
-      </div>
-      <div class="zctrl-row">
-        <button class="zctrl" id="zBack">▼</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── REACTION ── -->
-  <div id="reactionGame" class="game-area" style="display:none">
-    <div class="game-top-bar">
-      <button class="game-back-btn" data-back="reaction">← games</button>
-      <div class="game-score-display">avg <span id="reactAvg">—</span></div>
-      <div class="game-score-display">best <span id="reactBest">—</span></div>
-    </div>
-    <div id="reactionPad">
-      <div id="reactionMsg">tap to start</div>
-      <div id="reactionTime"></div>
-    </div>
-    <div id="reactionHistory"></div>
-  </div>
-</div>
-
-<style>
-  /* ── WELL VIEW ── */
-  #wellView {
-    display: none;
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 32px 16px 80px;
-    min-height: 100vh;
-  }
-  #wellView.open { display: block; }
-
-  .well-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 32px;
-  }
-
-  .well-title {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  /* Game cards */
-  #gameMenu {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .game-card {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 18px 20px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-    text-align: left;
-    width: 100%;
-    animation: slideIn 0.2s ease both;
-  }
-  .game-card:nth-child(1) { animation-delay: 0.05s; }
-  .game-card:nth-child(2) { animation-delay: 0.1s; }
-  .game-card:nth-child(3) { animation-delay: 0.15s; }
-
-  .game-card:hover { border-color: var(--border2); background: var(--surface2); }
-
-  .game-card-icon {
-    font-size: 22px;
-    width: 36px;
-    text-align: center;
-    opacity: 0.6;
-    flex-shrink: 0;
-  }
-
-  .game-card-name {
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    color: var(--text);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 2px;
-  }
-
-  .game-card-desc {
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  /* Game area */
-  .game-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .game-top-bar {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    gap: 12px;
-    margin-bottom: 4px;
-  }
-
-  .game-back-btn {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--muted2);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: color 0.15s;
-    padding: 0;
-    margin-right: auto;
-  }
-  .game-back-btn:hover { color: var(--muted); }
-
-  .game-score-display {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-  }
-
-  .game-score-display span {
-    color: var(--text);
-    margin-left: 4px;
-  }
-
-  /* Game overlay */
-  .game-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: rgba(14,14,14,0.88);
-    border-radius: 8px;
-    gap: 16px;
-    z-index: 10;
-    backdrop-filter: blur(3px);
-  }
-
-  .overlay-text {
-    font-family: 'DM Mono', monospace;
-    font-size: 22px;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: var(--text);
-  }
-
-  .overlay-btn {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    background: var(--text);
-    color: var(--bg);
-    border: none;
-    border-radius: 6px;
-    padding: 10px 28px;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .overlay-btn:hover { background: #bbb; }
-
-  /* ── SNAKE ── */
-  #snakeCanvas {
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    display: block;
-    image-rendering: pixelated;
-  }
-
-  #snakeGame {
-    position: relative;
-    width: 100%;
-  }
-
-  .snake-controls {
-    display: grid;
-    grid-template-columns: repeat(3, 48px);
-    grid-template-rows: repeat(2, 48px);
-    gap: 4px;
-    margin-top: 8px;
-  }
-
-  .dpad {
-    width: 48px; height: 48px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    border-radius: 6px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.1s;
-    display: flex; align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .dpad:active { background: var(--border2); color: var(--text); }
-
-  /* ── ZOMBIE SHOOTER ── */
-  #zombieGame { width: 100%; }
-  #zombieWrap { position: relative; width: 100%; }
-
-  #zombieHUD {
-    position: absolute;
-    bottom: 8px; left: 8px; right: 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    pointer-events: none;
-  }
-
-  #zHealthBar {
-    height: 6px;
-    flex: 1;
-    background: #222;
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  #zHealthFill {
-    height: 100%;
-    width: 100%;
-    background: #e8000d;
-    border-radius: 3px;
-    transition: width 0.2s;
-  }
-
-  #zAmmoDisplay {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: #aaa;
-    letter-spacing: 1px;
-  }
-
-  .zombie-controls {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    margin-top: 10px;
-  }
-
-  .zctrl-row { display: flex; gap: 4px; justify-content: center; }
-
-  .zctrl {
-    width: 54px; height: 54px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--muted);
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: all 0.1s;
-    display: flex; align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-  }
-  .zctrl:active { background: var(--border2); color: var(--text); transform: scale(0.93); }
-  .zctrl-fire { background: #1a0000; border-color: #440000; font-size: 20px; width: 64px; }
-  .zctrl-fire:active { background: #330000; }
-
-  /* ── REACTION ── */
-  #reactionGame { width: 100%; }
-
-  #reactionPad {
-    width: 100%;
-    height: 220px;
-    border-radius: 12px;
-    background: #1a1a1a;
-    border: 2px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.1s, border-color 0.1s;
-    gap: 10px;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-  }
-
-  #reactionPad.waiting { background: #1a1a00; border-color: #444400; }
-  #reactionPad.go      { background: #001a00; border-color: #004400; }
-  #reactionPad.early   { background: #1a0000; border-color: var(--red); }
-  #reactionPad.done    { background: #001a00; border-color: #004400; }
-
-  #reactionMsg {
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--muted);
-    transition: color 0.1s;
-  }
-  #reactionPad.go #reactionMsg      { color: #66ff66; font-size: 16px; }
-  #reactionPad.waiting #reactionMsg { color: #888800; }
-  #reactionPad.early #reactionMsg   { color: var(--red); }
-  #reactionPad.done #reactionMsg    { color: #66ff66; }
-
-  #reactionTime {
-    font-family: 'DM Mono', monospace;
-    font-size: 32px;
-    font-weight: 500;
-    color: var(--text);
-  }
-
-  #reactionHistory {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 8px;
-    max-height: 160px;
-    overflow-y: auto;
-  }
-
-  .react-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 6px 12px;
-    background: var(--surface);
-    border-radius: 4px;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-  }
-
-  .react-row .r-num { color: var(--muted); }
-  .react-row .r-time { color: var(--text); }
-  .react-row .r-bar {
-    height: 3px;
-    background: var(--border2);
-    border-radius: 2px;
-    flex: 1;
-    margin: 0 10px;
-    position: relative;
-    overflow: hidden;
-  }
-  .react-row .r-fill {
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    background: #66ff66;
-    border-radius: 2px;
-    transition: width 0.3s ease;
-  }
-  .react-row.slow .r-fill { background: #f5a623; }
-  .react-row.very-slow .r-fill { background: var(--red); }
-</style>
-
-<script>
-// ── WELL / GAMES ──
-
-function showWell() {
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('mainFooter').style.display = 'none';
-  document.getElementById('wellView').classList.add('open');
-  showGameMenu();
-}
-
-function hideWell() {
-  stopSnake();
-  stopZombie();
-  stopReaction();
-  document.getElementById('wellView').classList.remove('open');
-  document.getElementById('app').style.display = '';
-  document.getElementById('mainFooter').style.display = '';
-}
-
-function showGameMenu() {
-  document.getElementById('gameMenu').style.display = 'flex';
-  document.getElementById('snakeGame').style.display = 'none';
-  document.getElementById('zombieGame').style.display = 'none';
-  document.getElementById('reactionGame').style.display = 'none';
-}
-
-document.getElementById('wellBtn').addEventListener('click', showWell);
-document.getElementById('wellBackBtn').addEventListener('click', hideWell);
-
-document.querySelectorAll('.game-card').forEach(card => {
-  card.addEventListener('click', () => {
-    const g = card.dataset.game;
-    document.getElementById('gameMenu').style.display = 'none';
-    if (g === 'snake') initSnakeView();
-    if (g === 'zombie') initZombieView();
-    if (g === 'reaction') initReactionView();
-  });
-});
-
-document.querySelectorAll('.game-back-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    stopSnake();
-    stopZombie();
-    stopReaction();
-    showGameMenu();
-  });
-});
-
-// ════════════════════════════════
-// ── SNAKE ──
-// ════════════════════════════════
-let snakeLoop = null, snakeDir = {x:1,y:0}, snakeNextDir = {x:1,y:0};
-let snakeBody = [], snakeFood = {x:5,y:5}, snakeRunning = false;
-const SNAKE_COLS = 20, SNAKE_ROWS = 20;
-
-function initSnakeView() {
-  document.getElementById('snakeGame').style.display = 'flex';
-  const canvas = document.getElementById('snakeCanvas');
-  const size = Math.min(window.innerWidth - 32, 340);
-  canvas.width = size; canvas.height = size;
-  const best = localStorage.getItem('snake_best') || 0;
-  document.getElementById('snakeBest').textContent = best;
-  document.getElementById('snakeScore').textContent = 0;
-  document.getElementById('snakeOverlay').style.display = 'flex';
-  document.getElementById('snakeOverlayText').textContent = 'snake';
-  drawSnakeIdle();
-}
-
-function drawSnakeIdle() {
-  const canvas = document.getElementById('snakeCanvas');
-  const ctx = canvas.getContext('2d');
-  const cw = canvas.width / SNAKE_COLS;
-  ctx.fillStyle = '#0e0e0e';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  // draw a demo snake
-  [[8,10],[9,10],[10,10],[11,10],[12,10]].forEach(([x,y],i) => {
-    ctx.fillStyle = i === 0 ? '#e8e8e8' : `rgba(232,232,232,${0.4 - i*0.06})`;
-    ctx.beginPath();
-    ctx.roundRect(x*cw+1, y*cw+1, cw-2, cw-2, 3);
-    ctx.fill();
-  });
-}
-
-function startSnake() {
-  snakeBody = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
-  snakeDir = {x:1,y:0}; snakeNextDir = {x:1,y:0};
-  snakeFood = randSnakeFood();
-  snakeRunning = true;
-  document.getElementById('snakeOverlay').style.display = 'none';
-  document.getElementById('snakeScore').textContent = 0;
-  if (snakeLoop) clearInterval(snakeLoop);
-  snakeLoop = setInterval(stepSnake, 130);
-}
-
-function stopSnake() {
-  snakeRunning = false;
-  if (snakeLoop) { clearInterval(snakeLoop); snakeLoop = null; }
-}
-
-function randSnakeFood() {
-  let pos;
-  do { pos = { x: Math.floor(Math.random()*SNAKE_COLS), y: Math.floor(Math.random()*SNAKE_ROWS) }; }
-  while (snakeBody.some(s => s.x===pos.x && s.y===pos.y));
-  return pos;
-}
-
-function stepSnake() {
-  snakeDir = snakeNextDir;
-  const head = { x: snakeBody[0].x + snakeDir.x, y: snakeBody[0].y + snakeDir.y };
-  // wall collision
-  if (head.x < 0 || head.x >= SNAKE_COLS || head.y < 0 || head.y >= SNAKE_ROWS) return gameOverSnake();
-  // self collision
-  if (snakeBody.some(s => s.x===head.x && s.y===head.y)) return gameOverSnake();
-
-  snakeBody.unshift(head);
-  if (head.x === snakeFood.x && head.y === snakeFood.y) {
-    const score = snakeBody.length - 3;
-    document.getElementById('snakeScore').textContent = score;
-    const best = parseInt(localStorage.getItem('snake_best') || 0);
-    if (score > best) { localStorage.setItem('snake_best', score); document.getElementById('snakeBest').textContent = score; }
-    snakeFood = randSnakeFood();
-  } else {
-    snakeBody.pop();
-  }
-  drawSnake();
-}
-
-function drawSnake() {
-  const canvas = document.getElementById('snakeCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const cw = canvas.width / SNAKE_COLS;
-  ctx.fillStyle = '#0e0e0e';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  // food
-  ctx.fillStyle = '#e8000d';
-  ctx.beginPath();
-  ctx.arc(snakeFood.x*cw + cw/2, snakeFood.y*cw + cw/2, cw/2 - 2, 0, Math.PI*2);
-  ctx.fill();
-  // food glow
-  ctx.shadowColor = '#e8000d'; ctx.shadowBlur = 10;
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  // snake
-  snakeBody.forEach((s, i) => {
-    const alpha = i === 0 ? 1 : Math.max(0.15, 1 - i * 0.04);
-    ctx.fillStyle = i === 0 ? '#f0f0f0' : `rgba(180,180,180,${alpha})`;
-    ctx.beginPath();
-    ctx.roundRect(s.x*cw+1, s.y*cw+1, cw-2, cw-2, i===0 ? 4 : 2);
-    ctx.fill();
-  });
-}
-
-function gameOverSnake() {
-  stopSnake();
-  document.getElementById('snakeOverlayText').textContent = 'game over';
-  document.getElementById('snakeOverlay').style.display = 'flex';
-}
-
-document.getElementById('snakeStartBtn').addEventListener('click', startSnake);
-
-// keyboard
-document.addEventListener('keydown', e => {
-  if (!snakeRunning) return;
-  const map = { ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0} };
-  const d = map[e.key];
-  if (d && !(d.x===-snakeDir.x && d.y===-snakeDir.y)) { snakeNextDir=d; e.preventDefault(); }
-});
-
-// d-pad
-const dpadMap = { dUp:{x:0,y:-1}, dDown:{x:0,y:1}, dLeft:{x:-1,y:0}, dRight:{x:1,y:0} };
-Object.entries(dpadMap).forEach(([id, d]) => {
-  document.getElementById(id).addEventListener('click', () => {
-    if (snakeRunning && !(d.x===-snakeDir.x && d.y===-snakeDir.y)) snakeNextDir = d;
-  });
-});
-
-// ════════════════════════════════
-// ── ZOMBIE RAYCASTER ──
-// ════════════════════════════════
-const Z = {
-  canvas: null, ctx: null,
-  W: 320, H: 200,
-  running: false, loop: null,
-  // player
-  px: 3.5, py: 3.5, pAngle: 0,
-  pHealth: 100, pMaxHealth: 100,
-  pAmmo: 30, pMaxAmmo: 30,
-  // game state
-  kills: 0, wave: 1, waveKills: 0, waveSize: 3,
-  zombies: [], bullets: [], particles: [],
-  // controls
-  keys: {},
-  mobileKeys: { forward:false, back:false, left:false, right:false, fire:false },
-  lastShot: 0, reloading: false, reloadTimer: null,
-  shootAnim: 0,
-  flashTimer: 0,
-
-  // Map: 1=wall, 0=floor
-  map: [
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,1,1,0,0,0,0,0,0,0,1,1,0,0,1],
-    [1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1],
-    [1,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1],
-    [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
-    [1,0,0,0,0,1,1,0,0,1,1,0,0,0,0,1],
-    [1,0,1,0,0,0,0,0,0,0,0,0,1,0,0,1],
-    [1,0,1,1,0,0,0,0,0,0,0,1,1,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  ],
-
-  isWall(x, y) {
-    const mx = Math.floor(x), my = Math.floor(y);
-    if (mx < 0 || my < 0 || mx >= 16 || my >= 16) return true;
-    return this.map[my][mx] === 1;
-  },
-
-  spawnZombies() {
-    const spawnPoints = [
-      {x:1.5,y:1.5},{x:14.5,y:1.5},{x:1.5,y:14.5},{x:14.5,y:14.5},
-      {x:7.5,y:1.5},{x:1.5,y:7.5},{x:14.5,y:7.5},{x:7.5,y:14.5}
-    ];
-    for (let i = 0; i < this.waveSize; i++) {
-      const sp = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
-      this.zombies.push({
-        x: sp.x + (Math.random()-0.5)*0.5,
-        y: sp.y + (Math.random()-0.5)*0.5,
-        hp: 2 + this.wave,
-        maxHp: 2 + this.wave,
-        speed: 0.018 + this.wave * 0.003,
-        angle: Math.random() * Math.PI * 2,
-        state: 'walk', // walk, attack, dead
-        deadTimer: 0,
-        attackTimer: 0,
-        size: 0.35,
-        color: `hsl(${100 + Math.random()*60}, 60%, ${20 + Math.random()*15}%)`,
-      });
-    }
-  },
-
-  raycast(angle) {
-    const cos = Math.cos(angle), sin = Math.sin(angle);
-    let dist = 0;
-    for (let step = 0; step < 200; step++) {
-      dist = step * 0.05;
-      const tx = this.px + cos * dist;
-      const ty = this.py + sin * dist;
-      if (this.isWall(tx, ty)) {
-        // determine wall shade based on x/y hit
-        const mx = Math.floor(tx), my = Math.floor(ty);
-        const fx = tx - mx, fy = ty - my;
-        const side = (fx < 0.02 || fx > 0.98) ? 'x' : 'y';
-        return { dist, side };
+    while (i < line.length) {
+      const c = line[i];
+      const rest = line.slice(i);
+      let m;
+      if (c === " ") { i++; continue; }
+      if (c === "#") break;
+      if ((m = rest.match(/^[A-Za-z_]\w*/))) {
+        toks.push({ t: "NAME", v: m[0], line: ln }); i += m[0].length;
+      } else if ((m = rest.match(/^\?\w+/))) {
+        toks.push({ t: "VAR", v: m[0].slice(1), line: ln }); i += m[0].length;
+      } else if ((m = rest.match(/^\d+(\.\d+)?/))) {
+        toks.push({ t: "NUMBER", v: parseFloat(m[0]), line: ln }); i += m[0].length;
+      } else if (c === '"') {
+        const end = line.indexOf('"', i + 1);
+        if (end < 0) fail("this string is missing its closing quote", ln);
+        toks.push({ t: "STRING", v: line.slice(i + 1, end), line: ln });
+        i = end + 1;
+      } else if ((m = rest.match(/^(==|!=|<=|>=)/))) {
+        toks.push({ t: m[0], line: ln }); i += 2;
+      } else if ("(),=+-*/<>:".includes(c)) {
+        toks.push({ t: c, line: ln }); i++;
+      } else {
+        fail("I don't understand the character '" + c + "'", ln);
       }
     }
-    return { dist: 200, side: 'y' };
-  },
+    toks.push({ t: "NEWLINE", line: ln });
+  }
+  while (stack.length > 1) { stack.pop(); toks.push({ t: "DEDENT", line: lines.length }); }
+  toks.push({ t: "EOF", line: lines.length });
+  return toks;
+}
 
-  render() {
-    const ctx = this.ctx;
-    const W = this.W, H = this.H;
-    // sky
-    ctx.fillStyle = '#0a0008';
-    ctx.fillRect(0, 0, W, H/2);
-    // floor
-    ctx.fillStyle = '#0d0d0d';
-    ctx.fillRect(0, H/2, W, H/2);
+// ============================================================
+//  2. PARSER: tokens -> statements
+// ============================================================
+function parse(toks) {
+  let p = 0;
+  const peek = (k = 0) => toks[Math.min(p + k, toks.length - 1)];
+  const next = () => toks[p++];
+  const fail = (msg, tok = peek()) => { throw new Error("line " + tok.line + ": " + msg); };
+  const expect = (t, what) => {
+    if (peek().t !== t) fail("expected " + (what || t) + " but found " + describe(peek()));
+    return next();
+  };
+  const describe = tok => tok.t === "NEWLINE" ? "the end of the line" : tok.t === "EOF" ? "the end of the program"
+    : tok.v !== undefined ? "'" + tok.v + "'" : "'" + tok.t + "'";
 
-    // raycasting walls
-    const FOV = Math.PI / 2.5;
-    for (let col = 0; col < W; col++) {
-      const rayAngle = this.pAngle - FOV/2 + (col/W) * FOV;
-      const { dist, side } = this.raycast(rayAngle);
-      const corr = dist * Math.cos(rayAngle - this.pAngle);
-      const wallH = Math.min(H, H / corr);
-      const top = (H - wallH) / 2;
-      const bright = Math.max(30, 220 - dist * 18);
-      const r = side === 'x' ? Math.floor(bright * 0.4) : Math.floor(bright * 0.25);
-      const g = side === 'x' ? Math.floor(bright * 0.55) : Math.floor(bright * 0.35);
-      const b = side === 'x' ? Math.floor(bright * 0.45) : Math.floor(bright * 0.28);
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.fillRect(col, top, 1, wallH);
+  // ----- expressions -----
+  function parseExpr() {
+    let left = parseMul();
+    while (peek().t === "+" || peek().t === "-") {
+      const op = next().t;
+      left = { k: "bin", op, l: left, r: parseMul() };
     }
-
-    // Z-buffer
-    const zbuf = [];
-    for (let col = 0; col < W; col++) {
-      const rayAngle = this.pAngle - FOV/2 + (col/W) * FOV;
-      const { dist } = this.raycast(rayAngle);
-      zbuf.push(dist * Math.cos(rayAngle - this.pAngle));
+    return left;
+  }
+  function parseMul() {
+    let left = parseUnary();
+    while (peek().t === "*" || peek().t === "/") {
+      const op = next().t;
+      left = { k: "bin", op, l: left, r: parseUnary() };
     }
-
-    // sort zombies by distance (far first)
-    const sorted = [...this.zombies].sort((a,b) => {
-      const da = Math.hypot(a.x - this.px, a.y - this.py);
-      const db = Math.hypot(b.x - this.px, b.y - this.py);
-      return db - da;
-    });
-
-    sorted.forEach(z => {
-      if (z.state === 'dead') return;
-      const dx = z.x - this.px, dy = z.y - this.py;
-      const dist = Math.hypot(dx, dy);
-      let spriteAngle = Math.atan2(dy, dx) - this.pAngle;
-      while (spriteAngle > Math.PI) spriteAngle -= Math.PI * 2;
-      while (spriteAngle < -Math.PI) spriteAngle += Math.PI * 2;
-
-      if (Math.abs(spriteAngle) > FOV / 1.5) return;
-
-      const spriteH = Math.min(H * 1.4, H / dist);
-      const spriteW = spriteH * 0.6;
-      const screenX = (0.5 + spriteAngle / FOV) * W;
-      const startX = Math.floor(screenX - spriteW / 2);
-      const startY = Math.floor((H - spriteH) / 2);
-
-      const bright = Math.max(20, 180 - dist * 20);
-      // health color tint
-      const hpRatio = z.hp / z.maxHp;
-      const rr = Math.floor(bright * (0.3 + (1-hpRatio)*0.5));
-      const gg = Math.floor(bright * 0.5 * hpRatio);
-      const bb = Math.floor(bright * 0.2);
-
-      for (let col = Math.max(0, startX); col < Math.min(W, startX + spriteW); col++) {
-        if (dist < zbuf[col]) {
-          const texX = (col - startX) / spriteW;
-          // body
-          ctx.fillStyle = `rgb(${rr},${gg},${bb})`;
-          ctx.fillRect(col, startY + spriteH * 0.1, 1, spriteH * 0.75);
-          // head (brighter blob)
-          ctx.fillStyle = `rgb(${Math.floor(rr*1.3)},${Math.floor(gg*1.1)},${bb})`;
-          ctx.fillRect(col, startY, 1, spriteH * 0.22);
-          // eyes if close enough
-          if (dist < 5 && texX > 0.2 && texX < 0.8) {
-            const eyeY = startY + spriteH * 0.05;
-            if ((texX > 0.25 && texX < 0.38) || (texX > 0.62 && texX < 0.75)) {
-              ctx.fillStyle = '#ff2200';
-              ctx.fillRect(col, eyeY, 1, spriteH * 0.07);
-            }
+    return left;
+  }
+  function parseUnary() {
+    if (peek().t === "-") { next(); return { k: "bin", op: "-", l: { k: "num", v: 0 }, r: parseUnary() }; }
+    return parsePrimary();
+  }
+  function parsePrimary() {
+    const tok = next();
+    switch (tok.t) {
+      case "NUMBER": return { k: "num", v: tok.v };
+      case "STRING": return { k: "str", v: tok.v };
+      case "VAR": return { k: "var", n: tok.v };
+      case "(": { const e = parseExpr(); expect(")"); return e; }
+      case "NAME":
+        if (peek().t === "(") {
+          next();
+          const args = [];
+          if (peek().t !== ")") {
+            args.push(parseExpr());
+            while (peek().t === ",") { next(); args.push(parseExpr()); }
           }
+          expect(")", "')' to close the list");
+          return { k: "cmp", f: tok.v, args };
         }
-      }
-    });
-
-    // particles
-    this.particles.forEach(p => {
-      const alpha = p.life / p.maxLife;
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = p.color;
-      ctx.fillRect(p.x, p.y, p.size, p.size);
-    });
-    ctx.globalAlpha = 1;
-
-    // crosshair
-    const cx = W/2, cy = H/2;
-    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(cx-8,cy); ctx.lineTo(cx+8,cy); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+8); ctx.stroke();
-    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.stroke();
-
-    // muzzle flash
-    if (this.shootAnim > 0) {
-      ctx.fillStyle = `rgba(255,200,50,${this.shootAnim * 0.8})`;
-      ctx.beginPath();
-      ctx.arc(cx, cy + H*0.25, 12 * this.shootAnim, 0, Math.PI*2);
-      ctx.fill();
+        return { k: "name", n: tok.v };
+      default: fail("I wasn't expecting " + describe(tok), tok);
     }
-
-    // gun sprite (simple pixel gun)
-    this.drawGun(ctx, W, H);
-
-    // damage flash
-    if (this.flashTimer > 0) {
-      ctx.fillStyle = `rgba(232,0,13,${this.flashTimer * 0.4})`;
-      ctx.fillRect(0, 0, W, H);
-    }
-  },
-
-  drawGun(ctx, W, H) {
-    const bob = this.shootAnim > 0 ? -8 * this.shootAnim : 0;
-    const gx = W/2 - 12, gy = H - 55 + bob;
-    // barrel
-    ctx.fillStyle = '#555';
-    ctx.fillRect(gx + 8, gy, 8, 30);
-    // body
-    ctx.fillStyle = '#444';
-    ctx.fillRect(gx + 2, gy + 20, 22, 18);
-    // grip
-    ctx.fillStyle = '#333';
-    ctx.fillRect(gx + 8, gy + 35, 8, 14);
-    // highlight
-    ctx.fillStyle = '#777';
-    ctx.fillRect(gx + 9, gy + 1, 3, 25);
-    if (this.reloading) {
-      ctx.fillStyle = 'rgba(255,200,0,0.6)';
-      ctx.fillRect(gx, gy - 8, 28, 4);
-    }
-  },
-
-  shoot() {
-    const now = Date.now();
-    if (this.pAmmo <= 0) { this.startReload(); return; }
-    if (now - this.lastShot < 250) return;
-    if (this.reloading) return;
-    this.lastShot = now;
-    this.pAmmo--;
-    this.shootAnim = 1;
-    this.updateAmmoHUD();
-
-    // check hit
-    const FOV = Math.PI / 2.5;
-    let hit = false;
-    this.zombies.forEach(z => {
-      if (z.state === 'dead') return;
-      const dx = z.x - this.px, dy = z.y - this.py;
-      const dist = Math.hypot(dx, dy);
-      if (dist > 15) return;
-      let spriteAngle = Math.atan2(dy, dx) - this.pAngle;
-      while (spriteAngle > Math.PI) spriteAngle -= Math.PI * 2;
-      while (spriteAngle < -Math.PI) spriteAngle += Math.PI * 2;
-      const hitRadius = 0.3 / dist;
-      if (Math.abs(spriteAngle) < hitRadius + 0.1) {
-        z.hp -= 1;
-        this.spawnBlood(z.x, z.y, dist);
-        if (z.hp <= 0) {
-          z.state = 'dead';
-          this.kills++;
-          this.waveKills++;
-          document.getElementById('zKills').textContent = this.kills;
-          this.saveZombieScore();
-          if (this.waveKills >= this.waveSize) this.nextWave();
-        }
-        hit = true;
-      }
-    });
-
-    // muzzle particles
-    for (let i = 0; i < 6; i++) {
-      this.particles.push({
-        x: this.W/2 + (Math.random()-0.5)*20,
-        y: this.H - 40 + (Math.random()-0.5)*10,
-        vx: (Math.random()-0.5)*3, vy: -Math.random()*4,
-        life: 0.5, maxLife: 0.5,
-        color: `hsl(${30+Math.random()*30},100%,60%)`,
-        size: 2 + Math.random()*3
-      });
-    }
-  },
-
-  startReload() {
-    if (this.reloading || this.pAmmo === this.pMaxAmmo) return;
-    this.reloading = true;
-    this.updateAmmoHUD();
-    this.reloadTimer = setTimeout(() => {
-      this.pAmmo = this.pMaxAmmo;
-      this.reloading = false;
-      this.updateAmmoHUD();
-    }, 1800);
-  },
-
-  updateAmmoHUD() {
-    const el = document.getElementById('zAmmoDisplay');
-    if (!el) return;
-    if (this.reloading) { el.textContent = 'reloading...'; return; }
-    let s = '';
-    for (let i = 0; i < this.pMaxAmmo; i++) s += i < this.pAmmo ? '|' : '·';
-    el.textContent = s;
-  },
-
-  spawnBlood(wx, wy, dist) {
-    const spriteAngle = Math.atan2(wy - this.py, wx - this.px) - this.pAngle;
-    const FOV = Math.PI / 2.5;
-    const sx = (0.5 + spriteAngle / FOV) * this.W;
-    const sy = this.H / 2 + (Math.random()-0.5) * 30;
-    for (let i = 0; i < 8; i++) {
-      this.particles.push({
-        x: sx + (Math.random()-0.5)*20,
-        y: sy + (Math.random()-0.5)*20,
-        vx: (Math.random()-0.5)*2, vy: Math.random()*2,
-        life: 0.6, maxLife: 0.6,
-        color: `hsl(0,90%,${20+Math.random()*20}%)`,
-        size: 2 + Math.random()*4
-      });
-    }
-  },
-
-  nextWave() {
-    this.wave++;
-    this.waveKills = 0;
-    this.waveSize = this.wave * 3 + 2;
-    this.pAmmo = this.pMaxAmmo;
-    this.updateAmmoHUD();
-    document.getElementById('zWave').textContent = this.wave;
-    setTimeout(() => this.spawnZombies(), 1200);
-  },
-
-  saveZombieScore() {
-    const best = parseInt(localStorage.getItem('zombie_best') || 0);
-    if (this.kills > best) {
-      localStorage.setItem('zombie_best', this.kills);
-      document.getElementById('zBest').textContent = this.kills;
-    }
-    localStorage.setItem('zombie_wave', this.wave);
-  },
-
-  update(dt) {
-    // movement
-    const speed = 0.06;
-    const turnSpeed = 0.055;
-    const fwd = this.keys['ArrowUp'] || this.keys['w'] || this.mobileKeys.forward;
-    const bwd = this.keys['ArrowDown'] || this.keys['s'] || this.mobileKeys.back;
-    const lft = this.keys['ArrowLeft'] || this.keys['a'] || this.mobileKeys.left;
-    const rgt = this.keys['ArrowRight'] || this.keys['d'] || this.mobileKeys.right;
-
-    if (lft) this.pAngle -= turnSpeed;
-    if (rgt) this.pAngle += turnSpeed;
-
-    let nx = this.px, ny = this.py;
-    if (fwd) { nx += Math.cos(this.pAngle)*speed; ny += Math.sin(this.pAngle)*speed; }
-    if (bwd) { nx -= Math.cos(this.pAngle)*speed*0.6; ny -= Math.sin(this.pAngle)*speed*0.6; }
-
-    if (!this.isWall(nx + Math.cos(this.pAngle)*0.3, this.py)) this.px = nx;
-    if (!this.isWall(this.px, ny + Math.sin(this.pAngle)*0.3)) this.py = ny;
-
-    // auto fire on mobile hold
-    if (this.mobileKeys.fire) this.shoot();
-
-    // shoot anim decay
-    if (this.shootAnim > 0) this.shootAnim = Math.max(0, this.shootAnim - 0.15);
-    if (this.flashTimer > 0) this.flashTimer = Math.max(0, this.flashTimer - 0.08);
-
-    // update zombies
-    this.zombies.forEach(z => {
-      if (z.state === 'dead') return;
-      const dx = this.px - z.x, dy = this.py - z.y;
-      const dist = Math.hypot(dx, dy);
-      z.angle = Math.atan2(dy, dx);
-      const moveX = Math.cos(z.angle) * z.speed;
-      const moveY = Math.sin(z.angle) * z.speed;
-      if (!this.isWall(z.x + moveX + Math.sign(moveX)*0.2, z.y)) z.x += moveX;
-      if (!this.isWall(z.x, z.y + moveY + Math.sign(moveY)*0.2)) z.y += moveY;
-
-      // attack player
-      if (dist < 0.7) {
-        z.attackTimer++;
-        if (z.attackTimer % 40 === 0) {
-          this.pHealth = Math.max(0, this.pHealth - (3 + this.wave));
-          this.flashTimer = 1;
-          this.updateHealthHUD();
-          if (this.pHealth <= 0) this.gameOver();
-        }
-      } else { z.attackTimer = 0; }
-    });
-
-    // update particles
-    this.particles.forEach(p => {
-      p.x += p.vx; p.y += p.vy;
-      p.vy += 0.1;
-      p.life -= 0.04;
-    });
-    this.particles = this.particles.filter(p => p.life > 0);
-  },
-
-  updateHealthHUD() {
-    const fill = document.getElementById('zHealthFill');
-    if (fill) fill.style.width = Math.max(0, (this.pHealth / this.pMaxHealth) * 100) + '%';
-  },
-
-  gameOver() {
-    this.running = false;
-    cancelAnimationFrame(this.loop);
-    this.saveZombieScore();
-    const el = document.getElementById('zOverlayTitle');
-    const sub = document.getElementById('zOverlaySub');
-    if (el) el.textContent = 'you died';
-    if (sub) sub.textContent = `${this.kills} kills · wave ${this.wave}`;
-    const overlay = document.getElementById('zombieOverlay');
-    if (overlay) overlay.style.display = 'flex';
-  },
-
-  gameLoop(ts) {
-    if (!this.running) return;
-    this.update();
-    this.render();
-    this.loop = requestAnimationFrame(() => this.gameLoop());
-  },
-
-  start() {
-    this.px = 3.5; this.py = 3.5; this.pAngle = 0;
-    this.pHealth = 100; this.pAmmo = 30;
-    this.kills = 0; this.wave = 1; this.waveKills = 0; this.waveSize = 3;
-    this.zombies = []; this.bullets = []; this.particles = [];
-    this.reloading = false; this.shootAnim = 0; this.flashTimer = 0;
-    if (this.reloadTimer) clearTimeout(this.reloadTimer);
-    document.getElementById('zKills').textContent = 0;
-    document.getElementById('zWave').textContent = 1;
-    document.getElementById('zOverlayTitle').textContent = 'dead zone';
-    document.getElementById('zOverlaySub').textContent = 'wasd / arrows to move · click to shoot';
-    document.getElementById('zombieOverlay').style.display = 'none';
-    this.updateHealthHUD();
-    this.updateAmmoHUD();
-    this.spawnZombies();
-    this.running = true;
-    const loop = () => { if (!this.running) return; this.update(); this.render(); requestAnimationFrame(loop); };
-    requestAnimationFrame(loop);
   }
-};
 
-function initZombieView() {
-  document.getElementById('zombieGame').style.display = 'flex';
-  Z.canvas = document.getElementById('zombieCanvas');
-  const w = Math.min(window.innerWidth - 32, 440);
-  Z.W = w; Z.H = Math.floor(w * 0.65);
-  Z.canvas.width = Z.W; Z.canvas.height = Z.H;
-  Z.ctx = Z.canvas.getContext('2d');
-  const best = localStorage.getItem('zombie_best') || 0;
-  document.getElementById('zBest').textContent = best;
-  document.getElementById('zombieOverlay').style.display = 'flex';
-  // draw a dark idle screen
-  Z.ctx.fillStyle = '#0a0008';
-  Z.ctx.fillRect(0, 0, Z.W, Z.H);
+  // ----- one line of a rule body -----
+  function parseGoal() {
+    const left = parseExpr();
+    const ops = ["==", "!=", "<", ">", "<=", ">=", "="];
+    if (ops.includes(peek().t)) {
+      const op = next().t;
+      return { k: "op", op, l: left, r: parseExpr() };
+    }
+    if (left.k !== "cmp") fail("this line should look like name(...) or a comparison like ?x > 3");
+    return left;
+  }
+
+  // ----- statements -----
+  const stmts = [];
+  while (peek().t !== "EOF") {
+    if (peek().t === "NEWLINE") { next(); continue; }
+    const first = peek();
+    const line = first.line;
+
+    if (first.t === "NAME" && first.v === "teach" && peek(1).t === "NAME") {
+      next();
+      const head = parseExpr();
+      if (head.k !== "cmp") fail("a rule needs a name and parentheses, like teach name(?a, ?b):", first);
+      expect(":", "':' at the end of the rule line");
+      expect("NEWLINE");
+      if (peek().t !== "INDENT") fail("the lines of a rule must be indented under it");
+      next();
+      const body = [];
+      while (peek().t !== "DEDENT" && peek().t !== "EOF") {
+        if (peek().t === "NEWLINE") { next(); continue; }
+        body.push(parseGoal());
+        expect("NEWLINE");
+      }
+      if (peek().t === "DEDENT") next();
+      stmts.push({ type: "rule", head, body, line });
+    } else if (first.t === "NAME" && first.v === "wonder" && peek(1).t !== "=") {
+      next();
+      const goal = parseGoal();
+      expect("NEWLINE");
+      stmts.push({ type: "wonder", goal, line });
+    } else if (first.t === "NAME" && first.v === "say" && peek(1).t !== "=" && peek(1).t !== "(") {
+      next();
+      const e = parseExpr();
+      expect("NEWLINE");
+      stmts.push({ type: "say", expr: e, line });
+    } else if (first.t === "NAME" && peek(1).t === "=") {
+      next(); next();
+      const e = parseExpr();
+      expect("NEWLINE");
+      stmts.push({ type: "assign", name: first.v, expr: e, line });
+    } else {
+      const head = parseExpr();
+      if (head.k !== "cmp") fail("I don't know what this line means. Facts look like name(\"a\", \"b\")", first);
+      expect("NEWLINE");
+      stmts.push({ type: "fact", head, line });
+    }
+  }
+  return stmts;
 }
 
-function stopZombie() {
-  Z.running = false;
-  if (Z.reloadTimer) clearTimeout(Z.reloadTimer);
+// ============================================================
+//  3. SOLVER: unification + backtracking
+// ============================================================
+let VAR_ID = 0;
+class Var { constructor(n) { this.n = n; this.id = ++VAR_ID; } }
+
+let db = [];        // facts and rules
+let globals = {};   // x = 5 style variables
+
+// Turn parsed syntax into live values, giving each ?variable a fresh Var
+function rename(a, m) {
+  switch (a.k) {
+    case "num": case "str": return a.v;
+    case "var":
+      if (a.n === "_") return new Var("_");
+      return m[a.n] || (m[a.n] = new Var(a.n));
+    case "name": return a.n in globals ? globals[a.n] : a.n;
+    case "cmp": return { f: a.f, args: a.args.map(x => rename(x, m)) };
+    case "bin": return { bin: true, op: a.op, l: rename(a.l, m), r: rename(a.r, m) };
+  }
+}
+function renameGoal(g, m) {
+  if (g.k === "op") return { g: "op", op: g.op, l: rename(g.l, m), r: rename(g.r, m) };
+  return { g: "call", f: g.f, args: g.args.map(x => rename(x, m)) };
 }
 
-// keyboard
-document.addEventListener('keydown', e => {
-  Z.keys[e.key] = true;
-  if (Z.running && e.key === ' ') { Z.shoot(); e.preventDefault(); }
-  if (Z.running && e.key === 'r') Z.startReload();
-  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) && Z.running) e.preventDefault();
-});
-document.addEventListener('keyup', e => { Z.keys[e.key] = false; });
-
-// canvas click to shoot
-document.getElementById('zombieCanvas').addEventListener('click', () => { if (Z.running) Z.shoot(); });
-
-// start button
-document.getElementById('zStartBtn').addEventListener('click', () => Z.start());
-
-// mobile controls
-const mobileCtrlMap = {
-  zForward: 'forward', zBack: 'back', zLeft: 'left', zRight: 'right'
-};
-Object.entries(mobileCtrlMap).forEach(([id, key]) => {
-  const btn = document.getElementById(id);
-  btn.addEventListener('touchstart', e => { Z.mobileKeys[key] = true; e.preventDefault(); }, {passive:false});
-  btn.addEventListener('touchend', () => { Z.mobileKeys[key] = false; });
-  btn.addEventListener('mousedown', () => Z.mobileKeys[key] = true);
-  btn.addEventListener('mouseup', () => Z.mobileKeys[key] = false);
-});
-
-// fire button hold
-const fireBtn = document.getElementById('zFire');
-fireBtn.addEventListener('touchstart', e => { Z.mobileKeys.fire = true; e.preventDefault(); }, {passive:false});
-fireBtn.addEventListener('touchend', () => { Z.mobileKeys.fire = false; if (Z.running) Z.shoot(); });
-fireBtn.addEventListener('mousedown', () => { if (Z.running) Z.shoot(); });
-
-// ════════════════════════════════
-// ── REACTION TIME ──
-// ════════════════════════════════
-let reactState = 'idle', reactTimer = null, reactStart = 0;
-let reactTimes = [];
-
-function initReactionView() {
-  document.getElementById('reactionGame').style.display = 'flex';
-  reactState = 'idle';
-  reactTimes = [];
-  const best = localStorage.getItem('react_best');
-  document.getElementById('reactBest').textContent = best ? best + 'ms' : '—';
-  document.getElementById('reactAvg').textContent = '—';
-  document.getElementById('reactionTime').textContent = '';
-  document.getElementById('reactionMsg').textContent = 'tap to start';
-  document.getElementById('reactionPad').className = '';
-  document.getElementById('reactionHistory').innerHTML = '';
+function walk(t, s) {
+  while (t instanceof Var && s[t.id] !== undefined) t = s[t.id];
+  return t;
 }
 
-function stopReaction() {
-  if (reactTimer) { clearTimeout(reactTimer); reactTimer = null; }
-  reactState = 'idle';
+// Evaluate math. Returns undefined if some variable is still unknown.
+function ev(t, s) {
+  t = walk(t, s);
+  if (t instanceof Var) return undefined;
+  if (t && t.bin) {
+    const a = ev(t.l, s), b = ev(t.r, s);
+    if (a === undefined || b === undefined) return undefined;
+    if (t.op === "+") return a + b;
+    if (typeof a !== "number" || typeof b !== "number") throw new Error("you can only use " + t.op + " on numbers");
+    if (t.op === "-") return a - b;
+    if (t.op === "*") return a * b;
+    if (t.op === "/") { if (b === 0) throw new Error("divided by zero"); return a / b; }
+  }
+  return t;
 }
 
-document.getElementById('reactionPad').addEventListener('click', () => {
-  if (reactState === 'idle' || reactState === 'done') {
-    // start waiting
-    reactState = 'waiting';
-    const pad = document.getElementById('reactionPad');
-    pad.className = 'waiting';
-    document.getElementById('reactionMsg').textContent = 'wait for green...';
-    document.getElementById('reactionTime').textContent = '';
-    const delay = 1500 + Math.random() * 3000;
-    reactTimer = setTimeout(() => {
-      pad.className = 'go';
-      document.getElementById('reactionMsg').textContent = 'tap now!';
-      reactStart = performance.now();
-      reactState = 'go';
-    }, delay);
-  } else if (reactState === 'waiting') {
-    // too early
-    clearTimeout(reactTimer);
-    reactState = 'idle';
-    const pad = document.getElementById('reactionPad');
-    pad.className = 'early';
-    document.getElementById('reactionMsg').textContent = 'too early! tap to retry';
-    document.getElementById('reactionTime').textContent = '';
-  } else if (reactState === 'go') {
-    const ms = Math.round(performance.now() - reactStart);
-    reactState = 'done';
-    const pad = document.getElementById('reactionPad');
-    pad.className = 'done';
-    document.getElementById('reactionMsg').textContent = 'tap to go again';
-    document.getElementById('reactionTime').textContent = ms + 'ms';
-    reactTimes.push(ms);
+function unify(a, b, s) {
+  a = walk(a, s); b = walk(b, s);
+  if (a && a.bin) { a = ev(a, s); if (a === undefined) throw new Error("math on a value that isn't known yet"); }
+  if (b && b.bin) { b = ev(b, s); if (b === undefined) throw new Error("math on a value that isn't known yet"); }
+  if (a instanceof Var) return a === b ? s : { ...s, [a.id]: b };
+  if (b instanceof Var) return { ...s, [b.id]: a };
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    if (a.f !== b.f || a.args.length !== b.args.length) return null;
+    for (let i = 0; i < a.args.length; i++) { s = unify(a.args[i], b.args[i], s); if (!s) return null; }
+    return s;
+  }
+  return a === b ? s : null;
+}
 
-    const best = parseInt(localStorage.getItem('react_best') || 9999);
-    if (ms < best) { localStorage.setItem('react_best', ms); document.getElementById('reactBest').textContent = ms + 'ms'; }
-    const avg = Math.round(reactTimes.reduce((a,b)=>a+b,0)/reactTimes.length);
-    document.getElementById('reactAvg').textContent = avg + 'ms';
+function doEquals(g, s) {          // ?x = something
+  const lv = ev(g.l, s), rv = ev(g.r, s);
+  if (lv !== undefined && rv !== undefined) return unify(lv, rv, s);
+  if (rv !== undefined) return unify(g.l, rv, s);
+  if (lv !== undefined) return unify(g.r, lv, s);
+  return unify(g.l, g.r, s);
+}
 
-    addReactionHistoryRow(ms, reactTimes.length);
+function doCompare(g, s) {         // ==  !=  <  >  <=  >=
+  const a = ev(g.l, s), b = ev(g.r, s);
+  if (a === undefined || b === undefined) throw new Error("a comparison needs both sides to be known");
+  switch (g.op) {
+    case "==": return unify(a, b, s) !== null;
+    case "!=": return unify(a, b, s) === null;
+    case "<": return a < b;
+    case ">": return a > b;
+    case "<=": return a <= b;
+    case ">=": return a >= b;
+  }
+}
+
+function* solve(goals, s, ctx) {
+  if (goals.length === 0) { yield s; return; }
+  if (++ctx.steps > 200000) throw new Error("too many steps. Is there a rule that loops forever?");
+  const [g, ...rest] = goals;
+
+  if (g.g === "op") {
+    if (g.op === "=") { const s2 = doEquals(g, s); if (s2) yield* solve(rest, s2, ctx); }
+    else if (doCompare(g, s)) yield* solve(rest, s, ctx);
+    return;
+  }
+
+  if (!db.some(c => c.head.f === g.f)) throw new Error('nothing has been taught about "' + g.f + '". Check the spelling.');
+  for (const c of db) {
+    if (c.head.f !== g.f || c.head.args.length !== g.args.length) continue;
+    const m = {};
+    const head = rename(c.head, m);
+    const body = c.body.map(x => renameGoal(x, m));
+    let s2 = s;
+    for (let i = 0; i < g.args.length && s2; i++) s2 = unify(g.args[i], head.args[i], s2);
+    if (s2) yield* solve([...body, ...rest], s2, ctx);
+  }
+}
+
+// ============================================================
+//  4. RUNNING A PROGRAM
+// ============================================================
+function show(t, s) {
+  t = walk(t, s);
+  if (t && t.bin) { const v = ev(t, s); return v === undefined ? "?" : show(v, s); }
+  if (t instanceof Var) return "?" + t.n;
+  if (typeof t === "string") return JSON.stringify(t);
+  if (t && typeof t === "object") return t.f + "(" + t.args.map(x => show(x, s)).join(", ") + ")";
+  return String(t);
+}
+
+function interpret(src) {
+  db = []; globals = {};
+  const out = [];
+  const stmts = parse(lex(src));
+
+  for (const st of stmts) {
+    try {
+      if (st.type === "fact") {
+        db.push({ head: st.head, body: [] });
+      } else if (st.type === "rule") {
+        db.push({ head: st.head, body: st.body });
+      } else if (st.type === "assign") {
+        const v = ev(rename(st.expr, {}), {});
+        if (v === undefined) throw new Error("can't work out a value for " + st.name);
+        globals[st.name] = v;
+      } else if (st.type === "say") {
+        const v = ev(rename(st.expr, {}), {});
+        out.push(v === undefined ? "?" : show(v, {}));
+      } else if (st.type === "wonder") {
+        const m = {};
+        const goal = renameGoal(st.goal, m);
+        const names = Object.keys(m);
+        let count = 0;
+        for (const s of solve([goal], {}, { steps: 0 })) {
+          count++;
+          out.push(names.length ? names.map(n => "?" + n + " = " + show(m[n], s)).join(", ") : "yes");
+          if (count >= 100) { out.push("(stopped after 100 answers)"); break; }
+        }
+        if (count === 0) out.push("no");
+      }
+    } catch (e) {
+      if (/^line \d+:/.test(e.message)) throw e;
+      throw new Error("line " + st.line + ": " + e.message);
+    }
+  }
+  return out.length ? out.join("\n") : "(the program ran but didn't say or wonder anything)";
+}
+
+// ============================================================
+//  5. THE IDE
+// ============================================================
+const codeBox = document.getElementById("code");
+const outBox = document.getElementById("output");
+
+function run() {
+  try {
+    outBox.className = "";
+    outBox.textContent = interpret(codeBox.value);
+  } catch (e) {
+    outBox.className = "err";
+    outBox.textContent = "Error " + e.message;
+  }
+}
+
+function loadExample() {
+  const sel = document.getElementById("examples");
+  if (EXAMPLES[sel.value]) { codeBox.value = EXAMPLES[sel.value]; run(); }
+  sel.value = "";
+}
+
+codeBox.addEventListener("keydown", e => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const a = codeBox.selectionStart, b = codeBox.selectionEnd;
+    codeBox.value = codeBox.value.slice(0, a) + "    " + codeBox.value.slice(b);
+    codeBox.selectionStart = codeBox.selectionEnd = a + 4;
+  } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault(); run();
   }
 });
 
-function addReactionHistoryRow(ms, n) {
-  const hist = document.getElementById('reactionHistory');
-  const best = Math.min(...reactTimes);
-  // rerender all
-  hist.innerHTML = '';
-  [...reactTimes].reverse().forEach((t, i) => {
-    const row = document.createElement('div');
-    const pct = Math.max(5, Math.min(100, Math.round((best / t) * 100)));
-    const cls = t > 500 ? 'very-slow' : t > 350 ? 'slow' : '';
-    row.className = `react-row ${cls}`;
-    row.innerHTML = `
-      <span class="r-num">#${reactTimes.length - i}</span>
-      <div class="r-bar"><div class="r-fill" style="width:${pct}%"></div></div>
-      <span class="r-time">${t}ms</span>
-    `;
-    hist.appendChild(row);
-  });
-}
+codeBox.value = EXAMPLES.family;
+run();
 </script>
 </body>
 </html>
