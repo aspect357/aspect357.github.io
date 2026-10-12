@@ -25,6 +25,7 @@
   #ref pre { cursor: pointer; margin: .5rem 0 .2rem; min-height: 0; }
   #ref pre:hover { border-color: var(--accent); }
   #ref p { margin: 0 0 .8rem; color: var(--muted); }
+  canvas { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; margin-top: .6rem; max-width: 100%; }
 </style>
 </head>
 <body>
@@ -42,6 +43,7 @@
     <select id="examples" onchange="loadExample()" aria-label="Examples">
       <option value="">Load an example...</option>
       <option value="ai">AI: a brain that learns</option>
+      <option value="draw">Drawing</option>
       <option value="code">Normal code (loops, functions, lists)</option>
       <option value="family">Family tree</option>
       <option value="math">Variables and math</option>
@@ -52,6 +54,7 @@
 
   <textarea id="code" spellcheck="false"></textarea>
   <pre id="output">Output shows up here.</pre>
+  <canvas id="canvas" width="480" height="320" hidden></canvas>
   </div>
 </main>
 
@@ -68,6 +71,14 @@ err = train(brain, examples, 5000)
 say("how wrong it is now:", round(err, 4))
 for pair in examples:
     say(pair[0], "->", round(predict(brain, pair[0]), 2))
+`,
+draw: `# drawing shows up under the output
+background("black")
+color("orange")
+for i in range(1, 6):
+    circle(i * 80, 160, i * 6)
+color("white")
+write("fd# can draw", 20, 40)
 `,
 code: `# fd# can run normal code too
 def greet(name):
@@ -148,7 +159,14 @@ wonder sibling("bob", ?who)
 function lex(src) {
   const toks = [];
   const stack = [0];
-  const lines = src.split("\n");
+  const bd = s => { let d = 0, q = false; for (const c of s) { if (c === '"') q = !q; else if (!q && c === "#") break; else if (!q && "([{".includes(c)) d++; else if (!q && ")]}".includes(c)) d--; } return d; };
+  const raw = src.split("\n"), lines = [];
+  for (let n = 0; n < raw.length; n++) {            // a list can continue on the next lines
+    let cur = raw[n], extra = 0;
+    while (bd(cur) > 0 && n + 1 < raw.length) { n++; extra++; cur += " " + raw[n].trim(); }
+    lines.push(cur);
+    for (let k = 0; k < extra; k++) lines.push("");
+  }
   const fail = (msg, ln) => { throw new Error("line " + ln + ": " + msg); };
 
   for (let n = 0; n < lines.length; n++) {
@@ -336,6 +354,13 @@ function parse(toks) {
         return { type: "def", name, params, body: parseBlock(), line };
       }
       if (w === "return") { next(); const e = peek().t === "NEWLINE" ? null : parseExpr(); end(); return { type: "return", e, line }; }
+      if (w === "try") {
+        next();
+        const body = parseBlock();
+        if (!isKw("except")) fail("a try needs an except: right under it");
+        next();
+        return { type: "try", body, handler: parseBlock(), line };
+      }
       if (w === "break" || w === "continue") { next(); end(); return { type: w, line }; }
       if (n1 === "=") { next(); next(); const e = parseExpr(); end(); return { type: "assign", name: w, e, line }; }
       if (["+=", "-=", "*=", "/="].includes(n1)) {
@@ -543,6 +568,14 @@ function trainNet(net, ex, rounds, rate) {          // learn by nudging the numb
   }
 }
 
+let CTX = null;
+function ctx() {
+  if (!CTX) {
+    const c = document.getElementById("canvas"); c.hidden = false;
+    CTX = c.getContext("2d"); CTX.fillStyle = CTX.strokeStyle = "#f2b84b"; CTX.font = "20px sans-serif";
+  }
+  return CTX;
+}
 const BUILTINS = {
   print: (...a) => { OUT.push(a.map(disp).join(" ")); return null; },
   len: x => x instanceof Map ? x.size : x.length,
@@ -564,6 +597,28 @@ const BUILTINS = {
   },
   error: (m, ex) => avgError(m, prepExamples(m, ex)),
   argmax: l => l.indexOf(Math.max(...l)),
+  save: (name, m) => {
+    if (!m || m.f !== "network") throw new Error("save needs a network, like save(\"mybrain\", brain)");
+    localStorage.setItem("fd_brain_" + name, JSON.stringify({ s: m.args, W: m.W, B: m.B })); return name;
+  },
+  load: name => {
+    const s = localStorage.getItem("fd_brain_" + name);
+    if (!s) throw new Error('there is no saved brain called "' + name + '"');
+    const o = JSON.parse(s); return { f: "network", args: o.s, W: o.W, B: o.B };
+  },
+  saved: name => localStorage.getItem("fd_brain_" + name) !== null,
+  stop: m => { throw new Error(disp(m)); },
+  slice: (x, a, b) => x.slice(a, b),
+  pick: l => l[Math.floor(Math.random() * l.length)],
+  shuffle: l => [...l].sort(() => Math.random() - 0.5),
+  chance: () => Math.random(),
+  background: c => { const x = ctx(); x.fillStyle = c; x.fillRect(0, 0, 480, 320); x.fillStyle = x.strokeStyle = "#f2b84b"; return null; },
+  color: c => { const x = ctx(); x.fillStyle = x.strokeStyle = c; return null; },
+  rect: (a, b, w, h) => { ctx().fillRect(a, b, w, h); return null; },
+  circle: (a, b, r) => { const x = ctx(); x.beginPath(); x.arc(a, b, r, 0, 7); x.fill(); return null; },
+  line: (a, b, c, d) => { const x = ctx(); x.beginPath(); x.moveTo(a, b); x.lineTo(c, d); x.stroke(); return null; },
+  write: (s, a, b) => { ctx().fillText(disp(s), a, b); return null; },
+  clear: () => { ctx().clearRect(0, 0, 480, 320); return null; },
   keys: d => [...d.keys()],
   values: d => [...d.values()],
   join: (l, sep = "") => l.map(disp).join(sep),
@@ -712,6 +767,11 @@ function exec(st, env) {
         }
         return;
       }
+      case "try": {
+        const depth = DEPTH;
+        try { return execBlock(st.body, env); }
+        catch (e) { DEPTH = depth; env.problem = e.message.replace(/^line \d+: /, ""); return execBlock(st.handler, env); }
+      }
       case "wonder": {
         const m = {};
         const goal = renameGoal(st.goal, m);
@@ -733,6 +793,7 @@ function exec(st, env) {
 }
 
 function interpret(src) {
+  CTX = null; document.getElementById("canvas").hidden = true;
   db = []; globals = Object.create(null); FUNCS = {}; OUT = []; STEPS = 0; DEPTH = 0;
   execBlock(parse(lex(src)), globals);
   return OUT.length ? OUT.join("\n") : "(done. Nothing was printed)";
@@ -836,6 +897,24 @@ const REF = [
  [`say(round(predict(brain, [1, 0]), 2))`, "Asks the brain about something. One output gives a number from 0 to 1. Several outputs give a list."],
  [`say(error(brain, examples))`, "How wrong the brain is on a set of examples."],
  [`say(argmax([0.1, 0.7, 0.2]))`, "The position of the biggest number in a list. Useful when the network has one output per category."],
+]],
+["AI: saving a brain", [
+ [`save("mybrain", brain)`, "Saves a trained brain in this browser so it is still there after you reload the page."],
+ [`if saved("mybrain"):\n    brain = load("mybrain")\nelse:\n    brain = network(2, 8, 1)\n    train(brain, examples, 5000)\n    save("mybrain", brain)`, "Loads the brain if you saved one, otherwise trains and saves a new one."],
+]],
+["Handling errors", [
+ [`try:\n    x = num("abc")\nexcept:\n    say("that went wrong:", problem)`, "Runs the try lines. If something goes wrong, it doesn't stop. The except lines run instead, and 'problem' holds the message."],
+ [`stop("something is wrong")`, "Makes an error on purpose."],
+]],
+["Drawing", [
+ [`background("black")\ncolor("orange")\ncircle(240, 160, 50)`, "Drawing shows up in a box under the output. The box is 480 wide and 320 tall. (0, 0) is the top left."],
+ [`rect(20, 20, 100, 60)\nline(0, 0, 480, 320)`, "rect(x, y, width, height) and line(x1, y1, x2, y2). color(...) changes the color."],
+ [`write("hello", 20, 40)`, "Writes text on the drawing. clear() wipes it."],
+]],
+["More list and random tools", [
+ [`say(slice([1, 2, 3, 4], 1, 3))`, "A piece of a list or text, from position 1 up to (not including) 3."],
+ [`say(pick(["a", "b", "c"]))\nsay(shuffle([1, 2, 3]))\nsay(chance())`, "A random item, a shuffled copy, and a random decimal from 0 to 1."],
+ [`names = [\n    "sam",\n    "jo"\n]`, "A list can continue across lines until its closing bracket."],
 ]],
 ["AI: logic (facts, rules, questions)", [
  [`parent("alice", "bob")\nparent("bob", "carol")`, "A fact: something that is true. Any name(...) line that isn't a command is a fact."],
